@@ -1,5 +1,13 @@
 import { Router } from "express";
-import { login, logout, resendEmailVerification, signup, verifyEmail } from "../controllers/auth.controller.js";
+import {
+    forgotPassword,
+    login,
+    logout,
+    resendEmailVerification,
+    resetPassword,
+    signup,
+    verifyEmail
+} from "../controllers/auth.controller.js";
 
 const authRouter = Router();
 
@@ -22,5 +30,16 @@ authRouter
 authRouter
     .route("/logout")
     .post(logout)
+
+
+authRouter
+    .route("/forgot-password")
+    .post(forgotPassword);
+
+
+authRouter
+    .route("/reset-password")
+    .post(resetPassword);
+
 
 export default authRouter;

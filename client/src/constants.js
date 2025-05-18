@@ -20,13 +20,13 @@ export const IS_PRODUCTION =
 
 
 // export const BASE_URL = IS_PRODUCTION ?
-//     "https://adhd-app-backend.vercel.app/api/v1" :
+//     "https://adhd-tracker-bxm2.vercel.app/api/v1" :
 //     "http://localhost:5000/api/v1"
 
-// fortesting local host on mobile
+// for testing local host on mobile
 
 export const BASE_URL = IS_PRODUCTION ?
-  "https://adhd-app-backend.vercel.app/api/v1" :
+  "https://adhd-tracker-bxm2.vercel.app/api/v1" :
   "http://192.168.1.107:5000/api/v1"
 
 

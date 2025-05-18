@@ -90,6 +90,14 @@ const Login = () => {
                                     placeholder="Enter your password"
                                 />
 
+                                <NavLink
+                                    to={"/forgot-password"}
+                                    className="flex justify-end text-sm text-c-zinc font-bold underline mb-4">
+
+                                    Forgot Password?
+
+                                </NavLink>
+
                                 <button
                                     className="btn w-full btn-primary"
                                     type="submit"
@@ -109,7 +117,7 @@ const Login = () => {
                         <span className="text-slate-700">Don't have an account? </span>
                         <NavLink
                             to="/signup"
-                            className="text-slate-700 underline font-bold"
+                            className="text-c-zinc underline font-bold"
                         >
                             Sign Up
                         </NavLink>

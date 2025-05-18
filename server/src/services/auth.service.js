@@ -140,7 +140,7 @@ export const signupUserService = async (
             const resend = new Resend(RESEND_API_KEY);
 
             await resend.emails.send({
-                from: 'onboarding@resend.dev',
+                from: 'support@adhdthriveinstitute.com',
                 to: email,
                 subject: 'Verify Your Email',
                 html: `<div>
@@ -213,8 +213,8 @@ export const resendEmailVerificationService = async (email) => {
 
         const resend = new Resend(RESEND_API_KEY);
 
-        await resend.emails.send({
-            from: "onboarding@resend.dev",
+        const result = await resend.emails.send({
+            from: "support@adhdthriveinstitute.com",
             to: user.email,
             subject: "Verify your email",
             html: `
@@ -223,6 +223,9 @@ export const resendEmailVerificationService = async (email) => {
                 </div>
             `
         });
+
+        console.log(result)
+        console.log(verificationUrl)
 
         return {
             success: true,
@@ -237,6 +240,99 @@ export const resendEmailVerificationService = async (email) => {
 };
 
 
+// Forgot Password Service
+export const forgotPasswordService = async (email) => {
+    try {
+        if (!email) {
+            throw new AppError(400, "Email is required.");
+        }
+
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            throw new AppError(404, "User not found.");
+        }
+
+        const resetToken = crypto.randomBytes(32).toString("hex");
+        const hashedToken = crypto
+            .createHash("sha256")
+            .update(resetToken)
+            .digest("hex");
+
+        user.passwordResetToken = hashedToken;
+        user.passwordResetExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+
+        await user.save({ validateBeforeSave: false });
+
+        const resetURL = `${CLIENT_URL}/reset-password?token=${resetToken}`;
+
+        const resend = new Resend(RESEND_API_KEY);
+
+        await resend.emails.send({
+            from: "onboading@resend.dev",
+            to: user.email,
+            subject: "Reset your password",
+            html: `
+                <div>
+                    <p>You requested a password reset.</p>
+                    <p>Click <a href="${resetURL}">here</a> to reset your password.</p>
+                    <p>This link is valid for 15 minutes only.</p>
+                </div>
+            `,
+        });
+
+        return {
+            message: "Password reset email sent successfully.",
+        };
+    } catch (error) {
+        throw error instanceof AppError
+            ? error
+            : new AppError(500, error.message || "Failed to initiate password reset.");
+    }
+};
+
+
+// Reset Password Service
+export const resetPasswordService = async (token, newPassword) => {
+    try {
+        if (!token || !newPassword) {
+            throw new AppError(400, "Token and new password are required.");
+        }
+
+        const hashedToken = crypto
+            .createHash("sha256")
+            .update(token)
+            .digest("hex");
+
+        const user = await User.findOne({
+            passwordResetToken: hashedToken,
+            passwordResetExpires: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            throw new AppError(400, "Token is invalid or has expired.");
+        }
+
+        user.password = newPassword;
+        user.passwordResetToken = undefined;
+        user.passwordResetExpires = undefined;
+
+        await user.save();
+
+        return {
+            message: "Password has been reset successfully.",
+        };
+    } catch (error) {
+        throw error instanceof AppError
+            ? error
+            : new AppError(500, error.message || "Failed to reset password.");
+    }
+};
+
+
+
+
+
 
 
 //Login user by verifying credentials
@@ -244,9 +340,9 @@ export const resendEmailVerificationService = async (email) => {
 /*
 - Login User
 
-1. Get username and pass from req body.
-2. Check if user exsists - compare email
-3. if user exsists, compare his pass with pass stored in database.
+1. Get user's name and password from req body.
+2. Check if user exists - compare email
+3. if user exists, compare his password with password stored in database.
 5. if comparison become false, return error.
 4. if comparison become successfull, return access and refresh token.
 5. Send cookies

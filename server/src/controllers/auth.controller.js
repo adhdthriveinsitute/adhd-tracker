@@ -4,7 +4,9 @@ import {
     loginAdminService,
     loginUserService,
     signupUserService,
-    verifyEmailService
+    verifyEmailService,
+    forgotPasswordService,
+    resetPasswordService
 } from "../services/auth.service.js";
 import { AdminSettings } from "../models/adminSettings.model.js";
 import { Admin } from "../models/admin.model.js";
@@ -220,7 +222,7 @@ export const signup = async (req, res) => {
 
 
 
-export const resendEmailVerification = async (req, res) => {
+export const resendEmailVerification = async (req, res) => {t
     try {
         const { email } = req.body;
 
@@ -259,6 +261,31 @@ export const verifyEmail = async (req, res) => {
 };
 
 
+
+export const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const result = await forgotPasswordService(email);
+        res.status(200).json(result);
+    } catch (error) {
+        handleError(res, error);
+    }
+};
+
+
+export const resetPassword = async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+
+        const result = await resetPasswordService(token, newPassword);
+
+        res
+            .status(200)
+            .json(result);
+    } catch (error) {
+        handleError(res, error);
+    }
+};
 
 
 // Logout Admin

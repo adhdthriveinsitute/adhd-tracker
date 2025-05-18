@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 const Dashboard = lazy(() => import('@src/Pages/User/Dashboard'))
 const Profile = lazy(() => import('@src/Pages/User/Profile'))
 
+
 function UserRoutes() {
     return (
         <Routes>
