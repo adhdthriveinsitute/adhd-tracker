@@ -269,7 +269,7 @@ export const forgotPasswordService = async (email) => {
         const resend = new Resend(RESEND_API_KEY);
 
         await resend.emails.send({
-            from: "onboading@resend.dev",
+            from: "support@adhdthriveinstitute.com",
             to: user.email,
             subject: "Reset your password",
             html: `
