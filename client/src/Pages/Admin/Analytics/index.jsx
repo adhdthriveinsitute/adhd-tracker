@@ -114,41 +114,46 @@ const Analytics = () => {
 
         }
       }
+const averagedReductions = Object.entries(reductionScores).map(([symptomId, values]) => {
+  const percentChanges = [];
 
-      const averagedReductions = Object.entries(reductionScores).map(([symptomId, values]) => {
-        // Compute average daily change percentage
-        let changePercentage;
-        if (values.length > 1) {
-          let percentChanges = [];
-          for (let i = 1; i < values.length; i++) {
-            const prev = values[i - 1];
-            const curr = values[i];
-            if (prev !== 0) {
-              const pctChange = ((curr - prev) / prev) * 100;
-              percentChanges.push(pctChange);
-            }
-          }
+  for (let i = 1; i < values.length; i++) {
+    const prev = values[i - 1];
+    const curr = values[i];
 
-          if (percentChanges.length) {
-            const avgPctChange = percentChanges.reduce((a, b) => a + b, 0) / percentChanges.length;
-            changePercentage = `${avgPctChange.toFixed(2)}% avg/day`;
-          } else {
-            changePercentage = "No valid baseline to compute change";
-          }
-        } else {
-          changePercentage = "Not enough data";
-        }
+    if (prev === 0 && curr !== 0) {
+      percentChanges.push(100);
+    } else if (prev !== 0 && curr === 0) {
+      percentChanges.push(-100);
+    } else if (prev !== 0) {
+      percentChanges.push(((curr - prev) / prev) * 100);
+    }
+  }
+
+  const avgPctChange = percentChanges.length
+    ? percentChanges.reduce((a, b) => a + b, 0) / percentChanges.length
+    : 0;
+
+  const symptomName = symptomsFromBackend.find(s => s.id === symptomId)?.name || symptomId;
+
+  return {
+    symptom: symptomName,
+    avgPctChange: Math.abs(avgPctChange), // for correct YAxis
+    rawPctChange: avgPctChange, // for sorting
+    formattedChange: `${avgPctChange > 0 ? "+" : ""}${avgPctChange.toFixed(1)}%`
+  };
+});
+
+// Sort by most negative (highest reduction) and slice top 5
+const topReducedSymptoms = averagedReductions
+  .sort((a, b) => a.rawPctChange - b.rawPctChange)
+  .slice(0, 5);
+
+setReductionData(topReducedSymptoms);
 
 
-        return {
-          symptom: symptomsFromBackend.find(s => s.id === symptomId)?.name || symptomId,
-          change: changePercentage
-        };
-      });
 
 
-      averagedReductions.sort((a, b) => b.reduction - a.reduction);
-      const top5Reductions = averagedReductions.slice(0, 5);
 
       let overallChangeValue = null;
 
@@ -205,7 +210,6 @@ const Analytics = () => {
       }
 
       setChartData(mergedData);
-      setReductionData(top5Reductions);
       setOverallChange(overallChangeValue);
       setLoading(false);
     };
@@ -253,8 +257,8 @@ const Analytics = () => {
           <div className="text-center mb-8">
             <div
               className={`inline-block px-6 py-3 rounded-xl font-semibold text-xl shadow-sm ${parseFloat(overallChange) < 0
-                  ? 'text-c-zinc bg-white'
-                  : 'text-red-500 bg-red-100'
+                ? 'text-c-zinc bg-white'
+                : 'text-red-500 bg-red-100'
                 }`}
             >
               Overall Change in <strong>{getSymptomLabel(selectedSymptom)} </strong>

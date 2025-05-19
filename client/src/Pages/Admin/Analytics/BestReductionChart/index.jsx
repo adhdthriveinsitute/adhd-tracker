@@ -10,16 +10,28 @@ import {
 } from "recharts";
 
 const BestReductionChart = ({ data, loading }) => {
-    // Create placeholder data for loading state
+    // Placeholder data when loading
     const placeholderData = Array(5).fill().map((_, index) => ({
         symptom: `Symptom ${index + 1}`,
-        reduction: 0
+        avgPctChange: 0,
+        formattedChange: "0%"
     }));
 
-    const displayData = loading ? placeholderData : data;
+    // Sort data just to be safe (though you already sorted in parent)
+    const processedData = loading
+        ? placeholderData
+        : [...data]
+            .sort((a, b) => a.avgPctChange - b.avgPctChange)
+            .slice(0, 5);
 
-    // Custom tooltip formatter
-    const tooltipFormatter = (value) => [`${value}%`, "Reduction"];
+    const tooltipFormatter = (value, name, props) => {
+        const { payload } = props;
+        return [`${payload.formattedChange}`, "Reduction"];
+    };
+
+    const labelFormatter = (value, entry) => {
+        return entry?.formattedChange;
+    };
 
     return (
         <div className="w-full p-4 bg-white shadow rounded-3xl">
@@ -27,16 +39,16 @@ const BestReductionChart = ({ data, loading }) => {
 
             <ResponsiveContainer width="100%" height={300}>
                 <BarChart
-                    data={displayData}
+                    data={processedData}
                     margin={{ top: 20, right: 20, left: 40, bottom: 60 }}
                 >
                     <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={false} />
                     <XAxis
                         type="category"
                         dataKey="symptom"
-                      tick={{ fontSize: 11, fill: '#364153', angle: -20, textAnchor: 'end' }}
+                        tick={{ fontSize: 11, fill: '#364153', angle: -20, textAnchor: 'end' }}
                         height={60}
-                          interval={0}
+                        interval={0}
                     />
                     <YAxis
                         type="number"
@@ -52,17 +64,27 @@ const BestReductionChart = ({ data, loading }) => {
                     />
                     <Tooltip formatter={tooltipFormatter} />
                     <Bar
-                        dataKey="reduction"
+                        dataKey="avgPctChange"
                         fill="rgba(76, 175, 80, 0.6)"
                         background={{ fill: "#eee" }}
                         isAnimationActive={!loading}
                     >
                         <LabelList
-                            dataKey="reduction"
-                            position="top"
-                            formatter={(value) => `-${value}%`}
-                            style={{ fill: '#444', fontSize: 12, fontWeight: 500 }}
+                            dataKey="avgPctChange"
+                            content={({ x, y, width, height, value, index, entry }) => (
+                                <text
+                                    x={x + width / 2}
+                                    y={y - 6}
+                                    fill="#444"
+                                    fontSize={12}
+                                    fontWeight={500}
+                                    textAnchor="middle"
+                                >
+                                    {entry?.formattedChange}
+                                </text>
+                            )}
                         />
+
                     </Bar>
                 </BarChart>
             </ResponsiveContainer>
@@ -70,4 +92,4 @@ const BestReductionChart = ({ data, loading }) => {
     );
 };
 
-export default BestReductionChart
+export default BestReductionChart;
