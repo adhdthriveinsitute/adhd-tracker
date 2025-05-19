@@ -28,6 +28,18 @@ const Analytics = () => {
   const [symptomsFromBackend, setSymptomsFromBackend] = useState([])
 
 
+  const getSymptomLabel = (id) => {
+    if (id === "all") return "All Symptoms";
+    return symptomsFromBackend.find(s => s.id === id)?.name || id;
+  };
+
+  const getUserLabel = (id) => {
+    if (id === "all") return "All Users";
+    return users.find(u => u.value === id)?.label || id;
+  };
+
+
+
   useEffect(() => {
     fetchSymptoms();
   }, []);
@@ -93,46 +105,108 @@ const Analytics = () => {
           });
 
           for (const s of symptoms) {
-            if (!reductionScores[s.id]) {
-              reductionScores[s.id] = [];
+            const key = s.id || s.symptomId; // normalize key
+            if (!reductionScores[key]) {
+              reductionScores[key] = [];
             }
-            reductionScores[s.id].push(s.value);
+            reductionScores[key].push(s.value);
           }
+
         }
       }
 
       const averagedReductions = Object.entries(reductionScores).map(([symptomId, values]) => {
-        const baseline = values[0];
-        const latest = values[values.length - 1];
-        const reduction = baseline - latest;
+        // Compute average daily change percentage
+        let changePercentage;
+        if (values.length > 1) {
+          let percentChanges = [];
+          for (let i = 1; i < values.length; i++) {
+            const prev = values[i - 1];
+            const curr = values[i];
+            if (prev !== 0) {
+              const pctChange = ((curr - prev) / prev) * 100;
+              percentChanges.push(pctChange);
+            }
+          }
+
+          if (percentChanges.length) {
+            const avgPctChange = percentChanges.reduce((a, b) => a + b, 0) / percentChanges.length;
+            changePercentage = `${avgPctChange.toFixed(2)}% avg/day`;
+          } else {
+            changePercentage = "No valid baseline to compute change";
+          }
+        } else {
+          changePercentage = "Not enough data";
+        }
+
+
         return {
           symptom: symptomsFromBackend.find(s => s.id === symptomId)?.name || symptomId,
-          reduction: ((reduction / baseline) * 100).toFixed(2)
+          change: changePercentage
         };
       });
+
 
       averagedReductions.sort((a, b) => b.reduction - a.reduction);
       const top5Reductions = averagedReductions.slice(0, 5);
 
-      let totalChange = 0;
-      let count = 0;
+      let overallChangeValue = null;
 
-      Object.values(reductionScores).forEach(values => {
-        const baseline = values[0];
-        const latest = values[values.length - 1];
-        if (baseline && latest != null) {
-          const change = ((latest - baseline) / baseline) * 100;
-          totalChange += change;
-          count++;
+      if (selectedSymptom === "all") {
+        const sortedData = [...mergedData].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const firstScore = sortedData[0]?.score ?? 0;
+        const lastScore = sortedData[sortedData.length - 1]?.score ?? 0;
+
+        if (firstScore === 0) {
+          if (lastScore === 0) {
+            overallChangeValue = "No change";
+          } else {
+            // If the first score is 0 and last score is not, consider the change as a percentage from 1 (avoids Infinity)
+            overallChangeValue = `Started from 0 → ${lastScore} (${(100 * lastScore).toFixed(2)}% increase)`;
+          }
+        } else {
+          const change = ((lastScore - firstScore) / firstScore) * 100;
+          overallChangeValue = `${change > 0 ? "+" : ""}${change.toFixed(2)}%`;
         }
-      });
 
-      const overallChangeValue = count > 0 ? (totalChange / count).toFixed(2) : null;
-      setOverallChange(overallChangeValue);
+      } else {
+        const values = reductionScores[selectedSymptom];
+        if (values && values.length > 1) {
+          const percentChanges = [];
 
+          for (let i = 1; i < values.length; i++) {
+            const prev = values[i - 1];
+            const curr = values[i];
+
+            if (prev === 0 && curr !== 0) {
+              // 0 → X (e.g., 0 → 5) = 100% increase
+              percentChanges.push(100);
+            } else if (prev !== 0 && curr === 0) {
+              // X → 0 (e.g., 10 → 0) = 100% decrease
+              percentChanges.push(-100);
+            } else if (prev !== 0) {
+              // Normal percentage change
+              percentChanges.push(((curr - prev) / prev) * 100);
+            }
+            // Skip if both prev and curr are 0
+          }
+
+          if (percentChanges.length) {
+            const avg = percentChanges.reduce((a, b) => a + b, 0) / percentChanges.length;
+            overallChangeValue = `${avg.toFixed(2)}% avg/day`;
+          } else {
+            overallChangeValue = "No change";
+          }
+        } else {
+          overallChangeValue = "Not enough data";
+        }
+
+
+      }
 
       setChartData(mergedData);
       setReductionData(top5Reductions);
+      setOverallChange(overallChangeValue);
       setLoading(false);
     };
 
@@ -177,12 +251,20 @@ const Analytics = () => {
 
         {overallChange !== null && (
           <div className="text-center mb-8">
-            <div className={`inline-block px-6 py-3 rounded-xl font-semibold text-lg shadow-sm ${overallChange < 0 ? 'text-green-500 bg-green-100' : 'text-red-500 bg-red-100'
-              }`}>
-              Overall Change: {overallChange < 0 ? '' : '+'}{overallChange}%
+            <div
+              className={`inline-block px-6 py-3 rounded-xl font-semibold text-xl shadow-sm ${parseFloat(overallChange) < 0
+                  ? 'text-c-zinc bg-white'
+                  : 'text-red-500 bg-red-100'
+                }`}
+            >
+              Overall Change in <strong>{getSymptomLabel(selectedSymptom)} </strong>
+              for <strong>{getUserLabel(selectedUser)} </strong>
+              over the last <strong>{selectedRange}</strong> is
+              <strong> {overallChange}</strong>
             </div>
           </div>
         )}
+
 
 
         <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
