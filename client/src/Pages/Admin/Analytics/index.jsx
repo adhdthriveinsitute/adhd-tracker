@@ -10,13 +10,10 @@ import {
   fetchSymptomEntryForDate
 } from "./api";
 import { subDays, subMonths, parse, format } from "date-fns";
-import { SYMPTOMS, DATE_FORMAT_STRING } from "@src/constants";
+import { DATE_FORMAT_STRING } from "@src/constants";
+import { Axios } from "@src/api";
+import { ErrorNotification } from "@src/utils";
 
-const ALL_SYMPTOMS_OPTION = { value: "all", label: "All Symptoms" };
-const symptomOptions = [ALL_SYMPTOMS_OPTION, ...SYMPTOMS.map(symptom => ({ value: symptom.id, label: symptom.name }))];
-
-const timeRanges = ["Week", "Month", "3 Months", "6 Months", "Year"];
-const timeRangeOptions = timeRanges.map(label => ({ label, value: label }));
 
 const Analytics = () => {
   // const admin = useSelector(state => state.user);
@@ -28,6 +25,30 @@ const Analytics = () => {
   const [reductionData, setReductionData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [overallChange, setOverallChange] = useState(null);
+  const [symptomsFromBackend, setSymptomsFromBackend] = useState([])
+
+
+  useEffect(() => {
+    fetchSymptoms();
+  }, []);
+
+  const fetchSymptoms = async () => {
+    try {
+      const res = await Axios.get("/symptoms");
+      // console.log(res.data.symptoms)
+      setSymptomsFromBackend(res.data.symptoms);
+    } catch (error) {
+      ErrorNotification(error?.response?.data?.error || 'Failed to fetch symptoms.');
+      throw error.response ? error : new Error("Something went wrong");
+    }
+  };
+
+
+  const ALL_SYMPTOMS_OPTION = { value: "all", label: "All Symptoms" };
+  const symptomOptions = [ALL_SYMPTOMS_OPTION, ...symptomsFromBackend.map(symptom => ({ value: symptom.id, label: symptom.name }))];
+
+  const timeRanges = ["Week", "Month", "3 Months", "6 Months", "Year"];
+  const timeRangeOptions = timeRanges.map(label => ({ label, value: label }));
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -85,7 +106,7 @@ const Analytics = () => {
         const latest = values[values.length - 1];
         const reduction = baseline - latest;
         return {
-          symptom: SYMPTOMS.find(s => s.id === symptomId)?.name || symptomId,
+          symptom: symptomsFromBackend.find(s => s.id === symptomId)?.name || symptomId,
           reduction: ((reduction / baseline) * 100).toFixed(2)
         };
       });

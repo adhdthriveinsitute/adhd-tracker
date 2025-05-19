@@ -11,6 +11,7 @@ const ResetPassword = () => {
     const navigate = useNavigate();
     const query = new URLSearchParams(location.search);
     const token = query.get('token');
+    const role = query.get('role');
 
     if (!token) {
         ErrorNotification('Reset token is missing.');
@@ -28,7 +29,7 @@ const ResetPassword = () => {
 
     const handleSubmit = async (values, { setSubmitting }) => {
         try {
-            await resetPasswordRequest(token, values.newPassword);
+            await resetPasswordRequest(token, values.newPassword, role);
             SuccessNotification('Password has been reset successfully!');
             navigate('/login');
         } catch (error) {

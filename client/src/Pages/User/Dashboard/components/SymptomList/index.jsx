@@ -34,29 +34,39 @@ const SymptomList = ({
       {/* Save & Delete button */}
       <div className="flex justify-center space-x-4 mt-8 mb-4">
         <button
-          onClick={() =>
-            entryAlreadySaved
-              ? handleDeleteEntry()
-              : handleSaveEntry(formatSymptomScoresPayload(symptoms))
-          }
-          disabled={isSaving || isDeleting}
-          className={`!px-8 flex items-center justify-center btn-primary
-      ${entryAlreadySaved
-              ? "!bg-red-600 !text-white hover:!bg-red-700"
-              : ""
-            }
-      ${isSaving || isDeleting ? "opacity-50 cursor-not-allowed" : ""}
-    `}
+          onClick={() => handleSaveEntry(formatSymptomScoresPayload(symptoms))}
+          disabled={isSaving || entryAlreadySaved}
+          className={`!px-8 flex items-center justify-center btn-primary`}
         >
-          {isSaving || isDeleting ? (
+          {isSaving ? (
             <span className="flex items-center gap-2">
               <BiLoaderAlt className="animate-spin h-4 w-4" />
-              {entryAlreadySaved ? "Deleting..." : "Saving..."}
+              {"Saving..."}
             </span>
           ) : (
-            <span>{entryAlreadySaved ? "Delete Entry" : "Save Entry"}</span>
+            <span>{entryAlreadySaved ? "Entry Saved" : "Save Entry"}</span>
           )}
         </button>
+
+        {/* Delete button */}
+        {entryAlreadySaved && (
+          <button
+            onClick={handleDeleteEntry}
+            disabled={isDeleting}
+            className={`!px-8 flex items-center justify-center btn-primary !bg-red-600 !text-white hover:!bg-red-700`}
+          >
+            {isDeleting ? (
+              <span className="flex items-center gap-2">
+                <BiLoaderAlt className="animate-spin h-4 w-4" />
+                {"Deleting..."}
+              </span>
+            ) : (
+              <span>{"Delete Entry"}</span>
+            )}
+          </button>
+
+        )}
+
       </div>
 
 

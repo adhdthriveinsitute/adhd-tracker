@@ -56,7 +56,7 @@ const Signup = () => {
             .matches(/[A-Z]/, 'One uppercase required')
             .matches(/[a-z]/, 'One lowercase required')
             .matches(/\d/, 'One number required')
-            .matches(/[!@#$%^&*(),.?":{}|<>]/, 'One special char required')
+            .matches(/[!@#$%^&*(),.?":{}|<>]/, 'One special character required')
             .required('Required'),
         confirmPassword: yup
             .string()

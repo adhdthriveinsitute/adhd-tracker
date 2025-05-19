@@ -222,7 +222,8 @@ export const signup = async (req, res) => {
 
 
 
-export const resendEmailVerification = async (req, res) => {t
+export const resendEmailVerification = async (req, res) => {
+    t
     try {
         const { email } = req.body;
 
@@ -261,31 +262,29 @@ export const verifyEmail = async (req, res) => {
 };
 
 
-
 export const forgotPassword = async (req, res) => {
     try {
-        const { email } = req.body;
-        const result = await forgotPasswordService(email);
+        const { email, role } = req.body;
+        const result = await forgotPasswordService(email, role);
         res.status(200).json(result);
     } catch (error) {
         handleError(res, error);
     }
 };
 
-
 export const resetPassword = async (req, res) => {
     try {
-        const { token, newPassword } = req.body;
-
-        const result = await resetPasswordService(token, newPassword);
-
-        res
-            .status(200)
-            .json(result);
+        const { token, newPassword, role } = req.body;
+        const result = await resetPasswordService(
+            token,
+            newPassword,
+            role);
+        res.status(200).json(result);
     } catch (error) {
         handleError(res, error);
     }
 };
+
 
 
 // Logout Admin

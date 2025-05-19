@@ -1,4 +1,5 @@
 import ReadOnlyInput from "@src/Components/UI/ReadOnlyInput"
+import { WEIGHT_UNIT } from "@src/constants"
 
 function ReadOnlyProfileInfo({ profile }) {
     return (
@@ -13,13 +14,13 @@ function ReadOnlyProfileInfo({ profile }) {
                 label_text="Date of Birth"
                 text={profile.dateOfBirth} />
             <ReadOnlyInput
-                label_text="Weight (Kg)"
+                label_text={`Weight in ${WEIGHT_UNIT}`}
                 text={profile.weight} />
             <ReadOnlyInput
                 label_text="Gender"
                 text={profile.gender} />
             <ReadOnlyInput
-                label_text="Client of our institute"
+                label_text="Client of ADHD Thrive Institute"
                 text={profile.type === "client" ? "Yes"
                     : profile.type === "non-client" ? "No" : null} />
         </div>

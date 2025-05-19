@@ -4,16 +4,21 @@ import TextField from '@src/Components/FormikFields/TextField';
 import { BiLoaderAlt } from 'react-icons/bi';
 import { forgotPasswordRequest } from '../api';
 import { ErrorNotification, SuccessNotification } from '@src/utils';
+import { usePreviousLocation } from '@src/hooks/usePreviousLocation';
 import { NavLink } from 'react-router-dom';
 
 const ForgotPassword = () => {
+
+    const previousLocation = usePreviousLocation();
+    const role = previousLocation?.pathname?.startsWith("/admin") ? "admin" : "user";
+
     const validationSchema = yup.object({
         email: yup.string().email('Invalid email').required('Required'),
     });
 
     const handleSubmit = async (values, { setSubmitting, resetForm }) => {
         try {
-            await forgotPasswordRequest(values.email);
+            await forgotPasswordRequest(values.email, role);
             SuccessNotification('Reset link sent to your email!');
             resetForm();
         } catch (error) {

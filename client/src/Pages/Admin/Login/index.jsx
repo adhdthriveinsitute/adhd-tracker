@@ -87,6 +87,14 @@ const Login = () => {
                                     placeholder="Enter your password"
                                 />
 
+                                <NavLink
+                                    to={"/forgot-password"}
+                                    className="flex justify-end text-sm text-c-zinc font-bold underline mb-4">
+
+                                    Forgot Password?
+
+                                </NavLink>
+
                                 <button
                                     className="btn w-full btn-primary"
                                     type="submit"

@@ -26,8 +26,9 @@ export const getAllUsersDataService = async () => {
 export const getCSVExportableUserDataService = async () => {
     try {
         const users = await User.find()
-            .select("-password -accessToken -__v")
-            .sort({ createdAt: -1 });
+            .select("-password -accessToken -__v -isEmailVerified -emailVerificationToken")
+            .sort({ createdAt: -1 })
+            .lean();
 
         if (!users || users.length === 0) {
             throw new AppError(404, "No users found.");
@@ -47,9 +48,8 @@ export const getCSVExportableUserDataService = async () => {
 
         // Merge symptom logs into users
         const usersWithLogs = users.map(user => {
-            const userObj = user.toObject();
-            userObj.symptomLogs = logsByUser[user._id.toString()] || [];
-            return userObj;
+            user.symptomLogs = logsByUser[user._id.toString()] || [];
+            return user;
         });
 
         return usersWithLogs;

@@ -156,7 +156,7 @@ const ProfileEditingPopup = ({ profile, onClose }) => {
 
                             <Dropdown
                                 field="type"
-                                label_text={`Client of "ADHD Thrive Institute"?`}
+                                label_text={`Client of ADHD Thrive Institute`}
                                 options={[
                                     { label: "Yes", value: "client" },
                                     { label: "No", value: "non-client" }

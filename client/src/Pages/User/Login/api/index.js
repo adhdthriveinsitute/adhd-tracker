@@ -32,10 +32,13 @@ export const userLogin = async (
 
 
 
-export const forgotPasswordRequest = async (email) => {
+export const forgotPasswordRequest = async (email, role) => {
     try {
         const response = await Axios.post('/auth/forgot-password',
-            { email }
+            {
+                email,
+                role
+            }
         );
         return response.data;
     } catch (error) {
@@ -44,11 +47,14 @@ export const forgotPasswordRequest = async (email) => {
 };
 
 
-export const resetPasswordRequest = async (token, newPassword) => {
+export const resetPasswordRequest = async (token, newPassword, role) => {
     try {
+        // console.log("sending data", token, newPassword, role)
+
         const response = await Axios.post('/auth/reset-password', {
             token,
             newPassword,
+            role
         });
         return response.data;
     } catch (error) {

@@ -240,31 +240,39 @@ export const resendEmailVerificationService = async (email) => {
 };
 
 
+
+
 // Forgot Password Service
-export const forgotPasswordService = async (email) => {
+export const forgotPasswordService = async (email, role) => {
     try {
-        if (!email) {
-            throw new AppError(400, "Email is required.");
+        if (!email) throw new AppError(400, "Email is required.");
+        if (!role) throw new AppError(400, "Role is required.");
+
+        let Model;
+
+        if (role === "user") {
+            Model = User;
+        } else if (role === "admin") {
+            Model = Admin;
+        } else {
+            throw new AppError(400, "Invalid role.");
         }
 
-        const user = await User.findOne({ email });
+        const user = await Model.findOne({ email });
 
-        if (!user) {
-            throw new AppError(404, "User not found.");
-        }
+        if (!user) throw new AppError(404, "User not found.");
+
+        console.log("Here is the user with role", role, user)
 
         const resetToken = crypto.randomBytes(32).toString("hex");
-        const hashedToken = crypto
-            .createHash("sha256")
-            .update(resetToken)
-            .digest("hex");
+        const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
 
         user.passwordResetToken = hashedToken;
-        user.passwordResetExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+        user.passwordResetExpires = Date.now() + 15 * 60 * 1000;
 
         await user.save({ validateBeforeSave: false });
 
-        const resetURL = `${CLIENT_URL}/reset-password?token=${resetToken}`;
+        const resetURL = `${CLIENT_URL}/reset-password?token=${resetToken}&role=${role}`;
 
         const resend = new Resend(RESEND_API_KEY);
 
@@ -281,22 +289,29 @@ export const forgotPasswordService = async (email) => {
             `,
         });
 
-        return {
-            message: "Password reset email sent successfully.",
-        };
+        return { message: "Password reset email sent successfully." };
     } catch (error) {
-        throw error instanceof AppError
-            ? error
-            : new AppError(500, error.message || "Failed to initiate password reset.");
+        throw error instanceof AppError ? error : new AppError(500, error.message || "Failed to initiate password reset.");
     }
 };
 
 
+
 // Reset Password Service
-export const resetPasswordService = async (token, newPassword) => {
+export const resetPasswordService = async (token, newPassword, role) => {
     try {
-        if (!token || !newPassword) {
-            throw new AppError(400, "Token and new password are required.");
+        if (!token || !newPassword || !role) {
+            throw new AppError(400, "Token, new password, and role are required.");
+        }
+
+        let Model;
+
+        if (role === "user") {
+            Model = User;
+        } else if (role === "admin") {
+            Model = Admin;
+        } else {
+            throw new AppError(400, "Invalid role.");
         }
 
         const hashedToken = crypto
@@ -304,10 +319,12 @@ export const resetPasswordService = async (token, newPassword) => {
             .update(token)
             .digest("hex");
 
-        const user = await User.findOne({
+        const user = await Model.findOne({
             passwordResetToken: hashedToken,
             passwordResetExpires: { $gt: Date.now() }
         });
+
+        console.log("Here is the user with role", role, user)
 
         if (!user) {
             throw new AppError(400, "Token is invalid or has expired.");
@@ -319,15 +336,12 @@ export const resetPasswordService = async (token, newPassword) => {
 
         await user.save();
 
-        return {
-            message: "Password has been reset successfully.",
-        };
+        return { message: "Password has been reset successfully." };
     } catch (error) {
-        throw error instanceof AppError
-            ? error
-            : new AppError(500, error.message || "Failed to reset password.");
+        throw error instanceof AppError ? error : new AppError(500, error.message || "Failed to reset password.");
     }
 };
+
 
 
 

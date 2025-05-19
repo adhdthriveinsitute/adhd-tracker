@@ -11,30 +11,45 @@ const DownloadSymptomLogsButton = () => {
    * @param {Array} symptomLogs - Array of symptom log objects from API
    * @returns {Array} Array of objects ready for Papa.unparse
    */
-  const formatSymptomLogDataToCSV = (symptomLogs) => {
-    if (!symptomLogs || symptomLogs.length === 0) {
-      return [];
-    }
+const formatSymptomLogDataToCSV = (symptomLogs) => {
+  if (!symptomLogs || symptomLogs.length === 0) {
+    return [];
+  }
 
-    // Flatten the symptom logs to include name, date, and each symptom with its score
-    return symptomLogs.map(log => {
-      const flattenedLog = {
-        name: log.name || 'Unknown',
-        date: log.date || 'Unknown Date', // Ensure date is captured
-      };
-
-      // Add all symptoms with their scores as columns
-      if (log.scores && Array.isArray(log.scores)) {
-        log.scores.forEach(symptom => {
-          if (symptom.symptomId && symptom.score !== undefined) {
-            flattenedLog[symptom.symptomId] = symptom.score;
-          }
-        });
+  // Step 1: Collect all unique symptomIds across all logs
+  const allSymptomIdsSet = new Set();
+  symptomLogs.forEach(log => {
+    log.scores?.forEach(symptom => {
+      if (symptom.symptomId) {
+        allSymptomIdsSet.add(symptom.symptomId);
       }
-
-      return flattenedLog;
     });
-  };
+  });
+  const allSymptomIds = Array.from(allSymptomIdsSet);
+
+  // Step 2: Flatten logs and ensure all symptoms are included in every row
+  return symptomLogs.map(log => {
+    const flattenedLog = {
+      name: log.name || 'User Deleted',
+      date: log.date || 'Unknown Date',
+    };
+
+    // Initialize all symptoms to 0 or null
+    allSymptomIds.forEach(id => {
+      flattenedLog[id] = 0;
+    });
+
+    // Override with actual scores if present
+    log.scores?.forEach(symptom => {
+      if (symptom.symptomId && symptom.score !== undefined) {
+        flattenedLog[symptom.symptomId] = symptom.score;
+      }
+    });
+
+    return flattenedLog;
+  });
+};
+
 
   /**
    * Fetch all symptom logs and download as CSV using Papaparse
@@ -45,7 +60,8 @@ const DownloadSymptomLogsButton = () => {
       // Fetch symptom logs from API
       const response = await Axios.get("/symptom-logs");
       const symptomLogs = response.data.symptomLogs;
-
+      console.log(symptomLogs);
+      
       if (!symptomLogs || symptomLogs.length === 0) {
         alert("No symptom logs found.");
         setIsLoading(false);

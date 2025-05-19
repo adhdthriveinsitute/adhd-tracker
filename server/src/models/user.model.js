@@ -48,7 +48,11 @@ const userSchema = new mongoose.Schema({
         default: 'non-client',
         required: true
     },
-    emailVerificationToken: String,
+
+    emailVerificationToken: {
+        type: String
+    },
+
     isEmailVerified: {
         type: Boolean,
         default: false
