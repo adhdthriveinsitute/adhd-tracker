@@ -10,7 +10,7 @@ function App() {
 
   const user = useSelector((state) => state.user);
   const dispatch = useDispatch();
- const role =  getActiveRole() 
+  const role = getActiveRole()
 
   useEffect(() => {
     if (!user) {

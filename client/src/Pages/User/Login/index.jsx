@@ -91,7 +91,7 @@ const Login = () => {
                                 />
 
                                 <NavLink
-                                    to={"/forgot-password"}
+                                    to={"/forgot-password?role=user"}
                                     className="flex justify-end text-sm text-c-zinc font-bold underline mb-4">
 
                                     Forgot Password?

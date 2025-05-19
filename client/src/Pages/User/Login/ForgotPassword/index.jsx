@@ -4,14 +4,17 @@ import TextField from '@src/Components/FormikFields/TextField';
 import { BiLoaderAlt } from 'react-icons/bi';
 import { forgotPasswordRequest } from '../api';
 import { ErrorNotification, SuccessNotification } from '@src/utils';
-import { usePreviousLocation } from '@src/hooks/usePreviousLocation';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 
 const ForgotPassword = () => {
 
-    const previousLocation = usePreviousLocation();
-    const role = previousLocation?.pathname?.startsWith("/admin") ? "admin" : "user";
+     const location = useLocation();
+    const params = new URLSearchParams(location.search);
+    const role = params.get('role') || 'user'; // Default to 'user' if no role
 
+    console.log(role);  // Either "admin" or "user"
+
+    
     const validationSchema = yup.object({
         email: yup.string().email('Invalid email').required('Required'),
     });
