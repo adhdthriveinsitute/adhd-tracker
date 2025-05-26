@@ -11,44 +11,44 @@ const DownloadSymptomLogsButton = () => {
    * @param {Array} symptomLogs - Array of symptom log objects from API
    * @returns {Array} Array of objects ready for Papa.unparse
    */
-const formatSymptomLogDataToCSV = (symptomLogs) => {
-  if (!symptomLogs || symptomLogs.length === 0) {
-    return [];
-  }
+  const formatSymptomLogDataToCSV = (symptomLogs) => {
+    if (!symptomLogs || symptomLogs.length === 0) {
+      return [];
+    }
 
-  // Step 1: Collect all unique symptomIds across all logs
-  const allSymptomIdsSet = new Set();
-  symptomLogs.forEach(log => {
-    log.scores?.forEach(symptom => {
-      if (symptom.symptomId) {
-        allSymptomIdsSet.add(symptom.symptomId);
-      }
+    // Step 1: Collect all unique symptomIds across all logs
+    const allSymptomIdsSet = new Set();
+    symptomLogs.forEach(log => {
+      log.scores?.forEach(symptom => {
+        if (symptom.symptomId) {
+          allSymptomIdsSet.add(symptom.symptomId);
+        }
+      });
     });
-  });
-  const allSymptomIds = Array.from(allSymptomIdsSet);
+    const allSymptomIds = Array.from(allSymptomIdsSet);
 
-  // Step 2: Flatten logs and ensure all symptoms are included in every row
-  return symptomLogs.map(log => {
-    const flattenedLog = {
-      name: log.name || 'User Deleted',
-      date: log.date || 'Unknown Date',
-    };
+    // Step 2: Flatten logs and ensure all symptoms are included in every row
+    return symptomLogs.map(log => {
+      const flattenedLog = {
+        name: log.name || 'User Deleted',
+        date: log.date || 'Unknown Date',
+      };
 
-    // Initialize all symptoms to 0 or null
-    allSymptomIds.forEach(id => {
-      flattenedLog[id] = 0;
+      // Initialize all symptoms to 0 or null
+      allSymptomIds.forEach(id => {
+        flattenedLog[id] = 0;
+      });
+
+      // Override with actual scores if present
+      log.scores?.forEach(symptom => {
+        if (symptom.symptomId && symptom.score !== undefined) {
+          flattenedLog[symptom.symptomId] = symptom.score;
+        }
+      });
+
+      return flattenedLog;
     });
-
-    // Override with actual scores if present
-    log.scores?.forEach(symptom => {
-      if (symptom.symptomId && symptom.score !== undefined) {
-        flattenedLog[symptom.symptomId] = symptom.score;
-      }
-    });
-
-    return flattenedLog;
-  });
-};
+  };
 
 
   /**
@@ -61,7 +61,7 @@ const formatSymptomLogDataToCSV = (symptomLogs) => {
       const response = await Axios.get("/symptom-logs");
       const symptomLogs = response.data.symptomLogs;
       console.log(symptomLogs);
-      
+
       if (!symptomLogs || symptomLogs.length === 0) {
         alert("No symptom logs found.");
         setIsLoading(false);
@@ -69,7 +69,8 @@ const formatSymptomLogDataToCSV = (symptomLogs) => {
       }
 
       // Format data for CSV
-      const formattedData = formatSymptomLogDataToCSV(symptomLogs);
+      const sortedLogs = [...symptomLogs].sort((a, b) => new Date(b.date) - new Date(a.date));
+      const formattedData = formatSymptomLogDataToCSV(sortedLogs);
 
       // Use PapaParse to convert to CSV
       const csv = Papa.unparse(formattedData, {

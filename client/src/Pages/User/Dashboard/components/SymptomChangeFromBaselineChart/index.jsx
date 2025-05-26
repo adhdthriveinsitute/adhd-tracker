@@ -1,37 +1,72 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer
 } from "recharts"
 import { useSelector } from "react-redux"
-import { fetchAllSavedEntryDates, fetchSymptomEntryForDate } from "../SymptomTrendsChart/api"
-import { format, parse, parseISO } from "date-fns"
+import {
+  fetchAllSavedEntryDates,
+  fetchSymptomEntryForDate
+} from "../SymptomTrendsChart/api"
+import { format, parse, subDays, subMonths } from "date-fns"
 import { DATE_FORMAT_STRING } from "@src/constants"
+// import { selectSymptoms } from "@src/redux/slices/symptomsSlice"
 
 const SymptomChangeFromBaselineChart = ({
   reloadChart,
   selectedSymptom,
-  selectedRange }) => {
+  selectedRange,
+  SYMPTOMS,
+  startDate,
+  endDate
+
+}
+) => {
+  // const symptomsFromBackend = useSelector(selectSymptoms);
   const user = useSelector(state => state.user)
   const userId = user?._id
 
   const [chartData, setChartData] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (!userId) return;
 
-    const getCutoffForRange = (range) => {
+
+
+
+  const getCutoffForRange = useCallback((range) => {
+    const now = new Date();
+    switch (range) {
+      case "Week": return subDays(now, 7);
+      case "Month": return subMonths(now, 1);
+      case "3 Months": return subMonths(now, 3);
+      case "6 Months": return subMonths(now, 6);
+      case "Year": return subMonths(now, 12);
+      case "All Time": return null;
+      default: return null;
+    }
+  }, []);
+
+
+
+  useEffect(() => {
+    if (startDate && endDate && selectedRange !== "Custom") {
+      const expectedCutoff = getCutoffForRange(selectedRange);
       const now = new Date();
-      switch (range) {
-        case "Week": return subDays(now, 7);
-        case "Month": return subMonths(now, 1);
-        case "3 Months": return subMonths(now, 3);
-        case "6 Months": return subMonths(now, 6);
-        case "Year": return subMonths(now, 12);
-        default: return null;
+
+      if (
+        Math.abs(startDate - expectedCutoff) > 86400000 || // 1 day
+        Math.abs(endDate - now) > 86400000
+      ) {
+        // setSelectedRange("Custom");
       }
     }
+  }, [startDate, endDate, selectedRange, getCutoffForRange]);
+
+
+
+  useEffect(() => {
+    if (!userId || SYMPTOMS.length === 0) return; // avoid loading with incomplete SYMPTOMS
+
 
     const loadChartData = async () => {
       setLoading(true);
@@ -39,38 +74,52 @@ const SymptomChangeFromBaselineChart = ({
         const datesMap = await fetchAllSavedEntryDates(userId)
         let dates = Object.keys(datesMap).sort()
 
-        const cutoff = getCutoffForRange(selectedRange)
-        if (cutoff) {
-          dates = dates.filter(dateStr => parse(dateStr, DATE_FORMAT_STRING, new Date()) >= cutoff)
+        let filteredDates = [...Object.keys(datesMap).sort()];
+
+        if (selectedRange === "Custom" && startDate && endDate) {
+          filteredDates = filteredDates.filter(dateStr => {
+            const parsedDate = parse(dateStr, DATE_FORMAT_STRING, new Date());
+            return parsedDate >= startDate && parsedDate <= endDate;
+          });
+        } else {
+          const cutoff = getCutoffForRange(selectedRange);
+          if (cutoff) {
+            filteredDates = filteredDates.filter(dateStr => {
+              const parsedDate = parse(dateStr, DATE_FORMAT_STRING, new Date());
+              return parsedDate >= cutoff;
+            });
+          }
         }
 
-        let baseline = null
-        const allData = []
+        let baseline = null;
+        const allData = [];
 
-        for (const date of dates) {
-          const res = await fetchSymptomEntryForDate(userId, date)
-          const symptoms = res.symptoms
-          let score = 0
+        for (const date of filteredDates) {
+          const { symptoms } = await fetchSymptomEntryForDate(userId, date, SYMPTOMS);
 
+          let score = 0;
           if (selectedSymptom === "all") {
-            score = symptoms.reduce((acc, s) => acc + (s?.value || 0), 0)
+            score = symptoms.reduce((acc, s) => acc + (s?.value || 0), 0);
           } else {
-            const match = symptoms.find(s => s.id === selectedSymptom || s.symptomId === selectedSymptom)
-            score = match?.value ?? 0
+            const match = symptoms.find(s => s.id === selectedSymptom || s.symptomId === selectedSymptom);
+            score = match?.value ?? 0;
           }
 
-          if (baseline === null) baseline = score
-          const change = baseline === 0 ? 0 : (score / baseline)
-          const changePercent = baseline === 0 ? 0 : Math.round((change - 1) * 100)
+          if (baseline === null) baseline = score;
+
+          const safeBaseline = baseline === 0 ? 1 : baseline;
+          const change = score / safeBaseline;
+          const changePercent = Math.round((change - 1) * 100);
 
           allData.push({
-            date: format(parse(date, "MM-dd-yyyy", new Date()), "MMM dd yyyy"),
+            date: format(parse(date, DATE_FORMAT_STRING, new Date()), "MMM dd yyyy"),
             change,
             changePercent
-          })
+          });
         }
 
-        setChartData(allData)
+        setChartData(allData);
+
       } catch (err) {
         console.error("Error loading baseline chart data", err)
       } finally {
@@ -79,7 +128,7 @@ const SymptomChangeFromBaselineChart = ({
     }
 
     loadChartData()
-  }, [selectedSymptom, selectedRange, userId, reloadChart])
+  }, [selectedSymptom, selectedRange, userId, reloadChart, SYMPTOMS, startDate, endDate])
 
 
   const latestChange = chartData.length > 0 ? chartData[chartData.length - 1].changePercent : 0

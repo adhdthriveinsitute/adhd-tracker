@@ -1,6 +1,7 @@
 import { SymptomLog } from "../models/symptomLog.model.js";
 import { AppError } from "../utils/index.js";
 import { DATE_FORMAT_REGEX, DATE_FORMAT_STRING } from "../constants.js"
+import mongoose from "mongoose";
 
 export const saveSymptomLogService = async (userId, date, scores) => {
   try {
@@ -109,5 +110,108 @@ export const getAllSymptomLogsService = async () => {
     }));
   } catch (error) {
     throw new AppError(500, error?.message || "Failed to fetch all symptom logs.");
+  }
+};
+
+
+
+export const getSymptomLogsByUsersAndDatesService = async (userIds, dates) => {
+  try {
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      throw new AppError(400, "userIds must be a non-empty array.");
+    }
+
+    if (!Array.isArray(dates) || dates.length === 0) {
+      throw new AppError(400, "dates must be a non-empty array.");
+    }
+
+    const invalidDates = dates.filter(date => !DATE_FORMAT_REGEX.test(date));
+    if (invalidDates.length > 0) {
+      throw new AppError(400, `Invalid date format(s): ${invalidDates.join(", ")}. Use ${DATE_FORMAT_STRING}.`);
+    }
+
+    const logs = await SymptomLog.find({
+      user: { $in: userIds },
+      date: { $in: dates }
+    })
+      .select("user date scores -_id")
+      .lean();
+
+    // console.log("Raw logs from DB:", logs);
+    // console.dir(logs[0].scores[0], { depth: null });
+
+
+    // Shape the response
+    const result = {};
+    for (const userId of userIds) {
+      result[userId] = {};
+
+      for (const date of dates) {
+        result[userId][date] = { symptoms: [] };
+      }
+    }
+
+    for (const log of logs) {
+      const uid = log.user.toString();
+      const date = log.date;
+
+      if (result[uid] && result[uid][date]) {
+        result[uid][date] = { symptoms: log.scores };
+      }
+    }
+
+    return result;
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(500, error?.message || "Failed to fetch symptom logs.");
+  }
+};
+
+
+
+export const getSymptomLogDatesBatchService = async (userIds) => {
+  try {
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      throw new AppError(400, "userIds must be a non-empty array.");
+    }
+
+    // Use aggregation to group by user and collect unique dates
+    const logs = await SymptomLog.aggregate([
+      {
+        $match: {
+          user: { $in: userIds.map(id => new mongoose.Types.ObjectId(id)) }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            user: "$user",
+            date: "$date"
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$_id.user",
+          dates: { $addToSet: "$_id.date" }
+        }
+      }
+    ]);
+
+    // Prepare result as { userId: [dates...] }
+    const result = {};
+    for (const userId of userIds) {
+      result[userId] = [];
+    }
+
+    for (const entry of logs) {
+      const uid = entry._id.toString();
+      result[uid] = entry.dates;
+    }
+
+    return result;
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(500, error?.message || "Failed to fetch symptom log dates.");
   }
 };

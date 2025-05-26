@@ -7,13 +7,13 @@ import {
     ResponsiveContainer,
     CartesianGrid
 } from "recharts";
-import { SYMPTOMS } from "@src/constants";
 
 const SymptomTrendsChart = ({
     chartData,
     selectedSymptom,
     loading }) => {
     const maxY = selectedSymptom === "all" ? 220 : 10;
+
 
     return (
         <div className="w-full p-4 bg-white shadow rounded-3xl">

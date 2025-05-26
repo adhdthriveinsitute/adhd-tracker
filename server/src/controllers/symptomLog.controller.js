@@ -3,7 +3,9 @@ import {
     getSymptomLogByUserAndDate,
     getAllDatesWithEntriesForUserService,
     deleteSymptomLogByUserAndDateService,
-    getAllSymptomLogsService
+    getAllSymptomLogsService,
+    getSymptomLogsByUsersAndDatesService,
+    getSymptomLogDatesBatchService
 } from "../services/symptomLog.service.js";
 import { AppError, handleError } from "../utils/index.js";
 
@@ -136,4 +138,56 @@ export const getAllSymptomLogs = async (req, res) => {
             "Failed to fetch all symptom logs."
         );
     }
+};
+
+
+// POST /api/v1/symptom-logs/batch
+export const getSymptomLogsByUsersAndDates = async (req, res) => {
+    try {
+        const { userIds, dates } = req.body;
+
+        if (!Array.isArray(userIds) || userIds.length === 0) {
+            throw new AppError(400, "userIds array is required.");
+        }
+
+        if (!Array.isArray(dates) || dates.length === 0) {
+            throw new AppError(400, "dates array is required.");
+        }
+
+        const result = await getSymptomLogsByUsersAndDatesService(userIds, dates);
+
+        res.status(200).json(result);
+    } catch (error) {
+        handleError(
+            res,
+            error,
+            error instanceof AppError ? error.statusCode : 500,
+            "Failed to fetch symptom logs in batch."
+        );
+    }
+};
+
+
+
+
+// POST /api/v1/symptom-logs/dates/batch
+export const getSymptomLogDatesBatch = async (req, res) => {
+  try {
+    const { userIds } = req.body;
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      throw new AppError(400, "userIds array is required.");
+    }
+
+    const result = await getSymptomLogDatesBatchService(userIds);
+
+    res.status(200).json(result);
+  } catch (error) {
+    handleError(
+      res,
+      error,
+      error instanceof AppError ? error.statusCode : 500,
+      "Failed to fetch symptom log dates in batch."
+    );
+  }
 };

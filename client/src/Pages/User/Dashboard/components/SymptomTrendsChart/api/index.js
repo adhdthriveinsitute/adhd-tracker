@@ -1,15 +1,18 @@
 import { Axios } from "@src/api"
-import { SYMPTOMS } from "@src/constants"
 import { ErrorNotification } from "@src/utils"
+
 
 /**
  * Fetch symptoms for a specific date
  * @param {String} userId - ID of the user
  * @param {String} date - Date string in MM-yyyy-dd format
+ * @param {Array} dynamicSymptoms - Symptoms loaded from redux
  * @returns {Object} - { symptoms: [...], entryAlreadySaved: boolean }
  */
-export const fetchSymptomEntryForDate = async (userId, date) => {
+export const fetchSymptomEntryForDate = async (userId, date, dynamicSymptoms = []) => {
+
     try {
+
         const res = await Axios.get("/symptom-logs/by-date", {
             params: {
                 userId,
@@ -17,13 +20,14 @@ export const fetchSymptomEntryForDate = async (userId, date) => {
             },
         });
 
-        if (res.status === 200) {
+        if (res.status === 200 || res.status === 304) {
+            // console.log("dynamicSymptoms", dynamicSymptoms)
             const savedScores = res.data.scores;
-            const updatedSymptoms = SYMPTOMS.map(symptom => {
+            const updatedSymptoms = dynamicSymptoms.map(symptom => {
                 const matchingScore = savedScores.find(s => s.symptomId === symptom.id);
                 return {
                     ...symptom,
-                    value: matchingScore?.score || symptom.defaultValue,
+                    value: matchingScore?.score ?? symptom.defaultValue ?? 0,
                 };
             });
 
@@ -34,9 +38,9 @@ export const fetchSymptomEntryForDate = async (userId, date) => {
         }
     } catch (err) {
         if (err?.response?.status === 404) {
-            const initialSymptoms = SYMPTOMS.map(symptom => ({
+            const initialSymptoms = dynamicSymptoms.map(symptom => ({
                 ...symptom,
-                value: symptom.defaultValue,
+                value: symptom.defaultValue ?? 0,
             }));
 
             return {

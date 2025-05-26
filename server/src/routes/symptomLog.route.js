@@ -4,7 +4,9 @@ import {
     fetchSymptomLogByDate,
     getDatesWithEntries,
     saveSymptomLog,
-    getAllSymptomLogs
+    getAllSymptomLogs,
+    getSymptomLogsByUsersAndDates,
+    getSymptomLogDatesBatch
 }
     from "../controllers/symptomLog.controller.js";
 
@@ -28,6 +30,14 @@ symptomLogRouter
 
 symptomLogRouter
     .get("/dates", getDatesWithEntries)
+
+
+symptomLogRouter
+    .post("/dates/batch", getSymptomLogDatesBatch)
+
+
+symptomLogRouter
+    .post("/batch", getSymptomLogsByUsersAndDates);
 
 
 export default symptomLogRouter;

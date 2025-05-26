@@ -6,13 +6,17 @@ import SymptomTrendsChart from "./components/SymptomTrendsChart"
 import SymptomChangeFromBaselineChart from "./components/SymptomChangeFromBaselineChart"
 import SymptomScoreCard from "./components/SymptomScoreCard"
 import SymptomList from "./components/SymptomList"
-import { format } from "date-fns";
 
 // Utils and data
 import { DATE_FORMAT_STRING } from "@src/constants.js"
 import { formatDate, calculateTotalScore, ErrorNotification, SuccessNotification } from "@src/utils.js"
 import { Axios } from "@src/api"
 import { fetchSymptoms } from "./api"
+
+
+import { subDays, subMonths, format } from "date-fns";
+import Dropdown from "@src/Components/FormikFields/Dropdown";
+import DateInput from "@src/Components/DateInput";
 
 
 /**
@@ -34,6 +38,11 @@ const Dashboard = () => {
     const [reloadChart, setReloadChart] = useState(false);
     const [selectedSymptom, setSelectedSymptom] = useState("all")
     const [selectedRange, setSelectedRange] = useState("Month")
+    const [startDate, setStartDate] = useState(null);
+    const [endDate, setEndDate] = useState(null);
+
+
+
 
 
 
@@ -58,20 +67,29 @@ const Dashboard = () => {
                 }
             });
 
-            console.log(res)
+            // console.log(res)
 
             if (res.status === 200) {
                 // Populate saved symptoms and score
                 const savedScores = res.data.scores;
 
                 const updatedSymptoms = SYMPTOMS.map(symptom => {
-                    const matchingScore = savedScores.find(s => s.symptomId === symptom.id);
+
+                    SYMPTOMS.forEach(symptom => {
+                        const match = savedScores.find(s => s.symptomId === symptom.id);
+                        // console.log(`SYMPTOM: ${symptom.id}, MATCHED SCORE:`, match);
+                    });
+
+
+                    const matchingScore = savedScores.find(s =>
+                        s.symptomId?.toLowerCase() === symptom.id?.toLowerCase()
+                    );
+
                     return {
                         ...symptom,
-                        value: matchingScore?.score || symptom.value,
-                    }
+                        value: matchingScore?.score ?? symptom.value,
+                    };
                 });
-
                 setSymptoms(updatedSymptoms);
                 setEntryAlreadySaved(true);
             }
@@ -271,6 +289,11 @@ const Dashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                     <div>
                         <SymptomTrendsChart
+                            startDate={startDate}
+                            setStartDate={setStartDate}
+                            endDate={endDate}
+                            setEndDate={setEndDate}
+                            SYMPTOMS={SYMPTOMS}
                             selectedSymptom={selectedSymptom}
                             setSelectedSymptom={setSelectedSymptom}
                             selectedRange={selectedRange}
@@ -281,8 +304,12 @@ const Dashboard = () => {
 
                     <div>
                         <SymptomChangeFromBaselineChart
+                            startDate={startDate}
+                            endDate={endDate}
+                            setStartDate={setStartDate}
+                            selectedRange={selectedRange}
+                            SYMPTOMS={SYMPTOMS}
                             selectedSymptom={selectedSymptom}
-                            setSelectedSymptom={setSelectedSymptom}
                             reloadChart={reloadChart}
                         />
                     </div>

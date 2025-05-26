@@ -1,225 +1,32 @@
-import { useEffect, useState } from "react";
-// import { useSelector } from "react-redux";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { subDays, subMonths, format } from "date-fns";
+import "react-datepicker/dist/react-datepicker.css";
+
 import SymptomTrendsChart from "./SymptomTrendsChart";
 import BestReductionChart from "./BestReductionChart";
 import DownloadSymptomLogsButton from "./DownloadSymptomLogsButton";
 import Dropdown from "@src/Components/FormikFields/Dropdown";
-import {
-  fetchAllUsers,
-  fetchAllSavedEntryDates,
-  fetchSymptomEntryForDate
-} from "./api";
-import { subDays, subMonths, parse, format } from "date-fns";
-import { DATE_FORMAT_STRING } from "@src/constants";
-import { Axios } from "@src/api";
-import { ErrorNotification } from "@src/utils";
-
+import DateInput from "@src/Components/DateInput";
+import { useAnalyticsData } from "@src/hooks/useAdminAnalytics";
 
 const Analytics = () => {
-  // const admin = useSelector(state => state.user);
+  // Local state for filters
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
   const [selectedUser, setSelectedUser] = useState("all");
   const [selectedSymptom, setSelectedSymptom] = useState("all");
   const [selectedRange, setSelectedRange] = useState("Month");
-  const [users, setUsers] = useState([]);
-  const [chartData, setChartData] = useState([]);
-  const [reductionData, setReductionData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [overallChange, setOverallChange] = useState(null);
-  const [symptomsFromBackend, setSymptomsFromBackend] = useState([])
 
+  //  console.log("Selected Filters - User:", selectedUser, "Symptom:", selectedSymptom, "Range:", selectedRange);
 
-  const getSymptomLabel = (id) => {
-    if (id === "all") return "All Symptoms";
-    return symptomsFromBackend.find(s => s.id === id)?.name || id;
-  };
-
-  const getUserLabel = (id) => {
-    if (id === "all") return "All Users";
-    return users.find(u => u.value === id)?.label || id;
-  };
-
-
-
-  useEffect(() => {
-    fetchSymptoms();
+  // Memoized time range options
+  const timeRangeOptions = useMemo(() => {
+    const timeRanges = ["Week", "Month", "3 Months", "6 Months", "Year", "All Time", "Custom"];
+    return timeRanges.map(label => ({ label, value: label }));
   }, []);
 
-  const fetchSymptoms = async () => {
-    try {
-      const res = await Axios.get("/symptoms");
-      // console.log(res.data.symptoms)
-      setSymptomsFromBackend(res.data.symptoms);
-    } catch (error) {
-      ErrorNotification(error?.response?.data?.error || 'Failed to fetch symptoms.');
-      throw error.response ? error : new Error("Something went wrong");
-    }
-  };
-
-
-  const ALL_SYMPTOMS_OPTION = { value: "all", label: "All Symptoms" };
-  const symptomOptions = [ALL_SYMPTOMS_OPTION, ...symptomsFromBackend.map(symptom => ({ value: symptom.id, label: symptom.name }))];
-
-  const timeRanges = ["Week", "Month", "3 Months", "6 Months", "Year"];
-  const timeRangeOptions = timeRanges.map(label => ({ label, value: label }));
-
-  useEffect(() => {
-    const loadUsers = async () => {
-      const result = await fetchAllUsers();
-      const userOptions = result.map(u => ({ label: u.name, value: u._id }));
-      setUsers([{ label: "All Users", value: "all" }, ...userOptions]);
-    };
-    loadUsers();
-  }, []);
-
-  useEffect(() => {
-    const loadCharts = async () => {
-      setLoading(true);
-      const cutoff = getCutoffForRange(selectedRange);
-
-      const userIds = selectedUser === "all" ? users.filter(u => u.value !== "all").map(u => u.value) : [selectedUser];
-      const mergedData = [];
-      const reductionScores = {};
-
-      for (const userId of userIds) {
-        const datesMap = await fetchAllSavedEntryDates(userId);
-        let dates = Object.keys(datesMap).sort();
-        if (cutoff) {
-          dates = dates.filter(dateStr => parse(dateStr, DATE_FORMAT_STRING, new Date()) >= cutoff);
-        }
-
-        for (const date of dates) {
-          const entry = await fetchSymptomEntryForDate(userId, date);
-          const symptoms = entry.symptoms;
-          let score = 0;
-
-          if (selectedSymptom === "all") {
-            score = symptoms.reduce((acc, s) => acc + (s?.value || 0), 0);
-          } else {
-            const match = symptoms.find(s => s.id === selectedSymptom || s.symptomId === selectedSymptom);
-            score = match?.value ?? 0;
-          }
-
-          mergedData.push({
-            date: format(parse(date, DATE_FORMAT_STRING, new Date()), "MMM dd yyyy"),
-            score
-          });
-
-          for (const s of symptoms) {
-            const key = s.id || s.symptomId; // normalize key
-            if (!reductionScores[key]) {
-              reductionScores[key] = [];
-            }
-            reductionScores[key].push(s.value);
-          }
-
-        }
-      }
-const averagedReductions = Object.entries(reductionScores).map(([symptomId, values]) => {
-  const percentChanges = [];
-
-  for (let i = 1; i < values.length; i++) {
-    const prev = values[i - 1];
-    const curr = values[i];
-
-    if (prev === 0 && curr !== 0) {
-      percentChanges.push(100);
-    } else if (prev !== 0 && curr === 0) {
-      percentChanges.push(-100);
-    } else if (prev !== 0) {
-      percentChanges.push(((curr - prev) / prev) * 100);
-    }
-  }
-
-  const avgPctChange = percentChanges.length
-    ? percentChanges.reduce((a, b) => a + b, 0) / percentChanges.length
-    : 0;
-
-  const symptomName = symptomsFromBackend.find(s => s.id === symptomId)?.name || symptomId;
-
-  return {
-    symptom: symptomName,
-    avgPctChange: Math.abs(avgPctChange), // for correct YAxis
-    rawPctChange: avgPctChange, // for sorting
-    formattedChange: `${avgPctChange > 0 ? "+" : ""}${avgPctChange.toFixed(1)}%`
-  };
-});
-
-// Sort by most negative (highest reduction) and slice top 5
-const topReducedSymptoms = averagedReductions
-  .sort((a, b) => a.rawPctChange - b.rawPctChange)
-  .slice(0, 5);
-
-setReductionData(topReducedSymptoms);
-
-
-
-
-
-      let overallChangeValue = null;
-
-      if (selectedSymptom === "all") {
-        const sortedData = [...mergedData].sort((a, b) => new Date(a.date) - new Date(b.date));
-        const firstScore = sortedData[0]?.score ?? 0;
-        const lastScore = sortedData[sortedData.length - 1]?.score ?? 0;
-
-        if (firstScore === 0) {
-          if (lastScore === 0) {
-            overallChangeValue = "No change";
-          } else {
-            // If the first score is 0 and last score is not, consider the change as a percentage from 1 (avoids Infinity)
-            overallChangeValue = `Started from 0 → ${lastScore} (${(100 * lastScore).toFixed(2)}% increase)`;
-          }
-        } else {
-          const change = ((lastScore - firstScore) / firstScore) * 100;
-          overallChangeValue = `${change > 0 ? "+" : ""}${change.toFixed(2)}%`;
-        }
-
-      } else {
-        const values = reductionScores[selectedSymptom];
-        if (values && values.length > 1) {
-          const percentChanges = [];
-
-          for (let i = 1; i < values.length; i++) {
-            const prev = values[i - 1];
-            const curr = values[i];
-
-            if (prev === 0 && curr !== 0) {
-              // 0 → X (e.g., 0 → 5) = 100% increase
-              percentChanges.push(100);
-            } else if (prev !== 0 && curr === 0) {
-              // X → 0 (e.g., 10 → 0) = 100% decrease
-              percentChanges.push(-100);
-            } else if (prev !== 0) {
-              // Normal percentage change
-              percentChanges.push(((curr - prev) / prev) * 100);
-            }
-            // Skip if both prev and curr are 0
-          }
-
-          if (percentChanges.length) {
-            const avg = percentChanges.reduce((a, b) => a + b, 0) / percentChanges.length;
-            overallChangeValue = `${avg.toFixed(2)}% avg/day`;
-          } else {
-            overallChangeValue = "No change";
-          }
-        } else {
-          overallChangeValue = "Not enough data";
-        }
-
-
-      }
-
-      setChartData(mergedData);
-      setOverallChange(overallChangeValue);
-      setLoading(false);
-    };
-
-
-
-    if (users.length) loadCharts();
-  }, [selectedUser, selectedSymptom, selectedRange, users]);
-
-  const getCutoffForRange = (range) => {
+  // Memoized cutoff function
+  const getCutoffForRange = useCallback((range) => {
     const now = new Date();
     switch (range) {
       case "Week": return subDays(now, 7);
@@ -227,62 +34,257 @@ setReductionData(topReducedSymptoms);
       case "3 Months": return subMonths(now, 3);
       case "6 Months": return subMonths(now, 6);
       case "Year": return subMonths(now, 12);
+      case "All Time": return null;
       default: return null;
     }
-  };
+  }, []);
+
+  // Custom hook for data management
+  const {
+    symptoms,
+    users,
+    loading,
+    chartData,
+    reductionData,
+    overallChange,
+    hasData
+  } = useAnalyticsData({
+    selectedUser,
+    selectedSymptom,
+    selectedRange,
+    startDate,
+    endDate,
+    getCutoffForRange
+  });
+
+  //  console.log("Analytics Data - Symptoms:", symptoms, "Users:", users, "Loading:", loading, "Overall Change:", overallChange);
+
+  // Memoized symptom options with "All Symptoms" option
+  const symptomOptions = useMemo(() => {
+    const allSymptomsOption = { value: "all", label: "All Symptoms" };
+    const mappedSymptoms = symptoms.map(symptom => ({
+      value: symptom.id,
+      label: symptom.name
+    }));
+    return [allSymptomsOption, ...mappedSymptoms];
+  }, [symptoms]);
+
+  // Memoized user options with "All Users" option
+  const userOptions = useMemo(() => {
+    const allUsersOption = { value: "all", label: "All Users" };
+    const mappedUsers = users.map(user => ({
+      value: user._id,
+      label: user.name
+    }));
+    return [allUsersOption, ...mappedUsers];
+  }, [users]);
+
+  // Memoized label functions
+  const getSymptomLabel = useCallback((id) => {
+    if (id === "all") return "All Symptoms";
+    return symptoms.find(s => s.id === id)?.name || id;
+  }, [symptoms]);
+
+  const getUserLabel = useCallback((id) => {
+    if (id === "all") return "All Users";
+    return users.find(u => u._id === id)?.name || id;
+  }, [users]);
+
+  // Handle range changes - auto-set dates for predefined ranges
+  useEffect(() => {
+    if (selectedRange !== "Custom") {
+      const now = new Date();
+      const cutoff = getCutoffForRange(selectedRange);
+      setStartDate(cutoff);
+      setEndDate(now);
+      //  console.log(`Auto-setting dates: Start Date: ${cutoff}, End Date: ${now}`);
+    }
+  }, [selectedRange, getCutoffForRange]);
+
+  // Auto-detect custom range when dates are manually changed
+  useEffect(() => {
+    if (startDate && endDate && selectedRange !== "Custom") {
+      const expectedCutoff = getCutoffForRange(selectedRange);
+      const now = new Date();
+
+      // Check if dates don't match expected range (with 1 day tolerance)
+      if (
+        Math.abs(startDate - expectedCutoff) > 86400000 ||
+        Math.abs(endDate - now) > 86400000
+      ) {
+        setSelectedRange("Custom");
+        //  console.log("Custom range detected due to manual date change.");
+      }
+    }
+  }, [startDate, endDate, selectedRange, getCutoffForRange]);
+
+  // Memoized filter change handlers to prevent unnecessary re-renders
+  const handleUserChange = useCallback((value) => {
+    setSelectedUser(value);
+    //  console.log("User filter changed:", value);
+  }, []);
+
+  const handleSymptomChange = useCallback((value) => {
+    setSelectedSymptom(value);
+    //  console.log("Symptom filter changed:", value);
+  }, []);
+
+  const handleRangeChange = useCallback((value) => {
+    setSelectedRange(value);
+    //  console.log("Time Range filter changed:", value);
+  }, []);
+
+  const handleStartDateChange = useCallback((date) => {
+    setStartDate(date);
+    //  console.log("Start Date changed:", date);
+  }, []);
+
+  const handleEndDateChange = useCallback((date) => {
+    setEndDate(date);
+    //  console.log("End Date changed:", date);
+  }, []);
+
+  // Format date range for display
+  const getDateRangeDisplay = useCallback(() => {
+    if (selectedRange === "Custom" && startDate && endDate) {
+      return `${format(startDate, "MMM dd")} to ${format(endDate, "MMM dd")}`;
+    }
+
+    // Treat empty custom range as "All Time"
+    if (
+      (selectedRange === "All Time") ||
+      (selectedRange === "Custom" && !startDate)
+    ) {
+      return "All Time";
+    }
 
 
+
+    return selectedRange;
+  }, [selectedRange, startDate, endDate]);
+
+  // Determine overall change styling
+  const getOverallChangeStyle = useCallback((change) => {
+    //  console.log("Overall change value:", change);
+
+    if (!change || change === "No change" || change === "Not enough data") {
+      return "text-gray-600 bg-gray-100";
+    }
+
+    // Try to parse percentage change
+    const numericChange = parseFloat(change);
+    if (!isNaN(numericChange)) {
+      return numericChange < 0 ? 'text-green-600 bg-green-100' : 'text-red-500 bg-red-100';
+    }
+
+    // For non-numeric changes, use neutral styling
+    return "text-blue-600 bg-blue-100";
+  }, []);
 
   return (
     <main className="px-4 md:px-12 py-6 overflow-hidden">
       <section className="bg-gray-100 rounded-3xl mt-12 py-12 px-4 md:px-12">
-
-        <div className="flex flex-col md:flex-row items-center justify-between mb-6 ">
+        <div className="flex flex-col md:flex-row items-center justify-between mb-6">
           <h3 className="text-3xl md:text-5xl font-bold text-gray-700 text-center md:mb-0 mb-6">
             Admin Analytics
           </h3>
-
-
           <DownloadSymptomLogsButton />
         </div>
 
-
+        {/* Filter Controls */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 justify-center mb-8">
-          <Dropdown field="user" options={users} value={selectedUser} onChange={setSelectedUser} placeholder="Select User" disableFormik />
-          <Dropdown field="symptom" options={symptomOptions} value={selectedSymptom} onChange={setSelectedSymptom} placeholder="Select Symptom" disableFormik />
-          <Dropdown field="range" options={timeRangeOptions} value={selectedRange} onChange={setSelectedRange} placeholder="Select Time Range" disableFormik />
+          <Dropdown
+            field="user"
+            options={userOptions}
+            value={selectedUser}
+            onChange={handleUserChange}
+            placeholder="Select User"
+            disableFormik
+          />
+          <Dropdown
+            field="symptom"
+            options={symptomOptions}
+            value={selectedSymptom}
+            onChange={handleSymptomChange}
+            placeholder="Select Symptom"
+            disableFormik
+          />
+          <Dropdown
+            field="range"
+            options={timeRangeOptions}
+            value={selectedRange}
+            onChange={handleRangeChange}
+            placeholder="Select Time Range"
+            disableFormik
+          />
+
+          {/* Custom Date Inputs - Only show when Custom range is selected */}
+          {selectedRange === "Custom" && (
+            <>
+              <DateInput
+                label_text="Start Date"
+                placeholder="Start Date"
+                value={startDate}
+                onChange={handleStartDateChange}
+                maxDate={subDays(new Date(), 1)} // Yesterday max
+              />
+              <DateInput
+                label_text="End Date"
+                placeholder="End Date"
+                value={endDate}
+                onChange={handleEndDateChange}
+                minDate={startDate}
+                maxDate={new Date()} // Today max
+              />
+            </>
+          )}
         </div>
 
+        {/* Overall Change Display */}
         {overallChange !== null && (
           <div className="text-center mb-8">
             <div
-              className={`inline-block px-6 py-3 rounded-xl font-semibold text-xl shadow-sm ${parseFloat(overallChange) < 0
-                ? 'text-c-zinc bg-white'
-                : 'text-red-500 bg-red-100'
-                }`}
+              className={`inline-block px-6 py-3 rounded-xl font-semibold text-xl shadow-sm ${getOverallChangeStyle(overallChange)}`}
             >
-              Overall Change in <strong>{getSymptomLabel(selectedSymptom)} </strong>
-              for <strong>{getUserLabel(selectedUser)} </strong>
-              over the last <strong>{selectedRange}</strong> is
-              <strong> {overallChange}</strong>
+              Overall Change in <strong>{getSymptomLabel(selectedSymptom)}</strong> for{" "}
+              <strong>{getUserLabel(selectedUser)}</strong> over{" "}
+              <strong>{getDateRangeDisplay()}</strong> is <strong>{overallChange}</strong>
             </div>
           </div>
         )}
 
+        {/* Loading State */}
+        {loading && (
+          <div className="text-center mb-8">
+            <div className="inline-block px-6 py-3 rounded-xl bg-blue-100 text-blue-800 font-semibold">
+              Loading analytics data...
+            </div>
+          </div>
+        )}
 
+        {/* No Data State */}
+        {!loading && !hasData && (
+          <div className="text-center mb-8">
+            <div className="inline-block px-6 py-3 rounded-xl bg-yellow-100 text-yellow-800 font-semibold">
+              No data available for the selected filters. Try adjusting your selection.
+            </div>
+          </div>
+        )}
 
-        <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
-          <SymptomTrendsChart
-            chartData={chartData}
-            selectedSymptom={selectedSymptom}
-            loading={loading}
-          />
-
-          <BestReductionChart
-            data={reductionData}
-            loading={loading}
-          />
-        </div>
+        {/* Charts - Only render when we have data */}
+        {!loading && hasData && (
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+            <SymptomTrendsChart
+              chartData={chartData}
+              selectedSymptom={selectedSymptom}
+              loading={loading}
+            />
+            <BestReductionChart
+              data={reductionData}
+              loading={loading}
+            />
+          </div>
+        )}
       </section>
     </main>
   );
