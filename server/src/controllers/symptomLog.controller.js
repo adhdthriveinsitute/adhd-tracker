@@ -5,7 +5,8 @@ import {
     deleteSymptomLogByUserAndDateService,
     getAllSymptomLogsService,
     getSymptomLogsByUsersAndDatesService,
-    getSymptomLogDatesBatchService
+    getSymptomLogDatesBatchService,
+    saveBulkSymptomLogsService
 } from "../services/symptomLog.service.js";
 import { AppError, handleError } from "../utils/index.js";
 
@@ -42,6 +43,55 @@ export const saveSymptomLog = async (req, res) => {
         handleError(res, error, error instanceof AppError ? error.statusCode : 500, "Failed to save symptom log.");
     }
 };
+
+
+export const saveBulkSymptomLogs = async (req, res) => {
+    try {
+        const { logs } = req.body;
+
+        if (!logs || !Array.isArray(logs) || logs.length === 0) {
+            throw new AppError(400, "Logs array is required and cannot be empty.");
+        }
+
+        // Validate each log entry
+        for (let i = 0; i < logs.length; i++) {
+            const log = logs[i];
+            if (!log.email) {
+                throw new AppError(400, `Email is required for log at index ${i}.`);
+            }
+            if (!log.date) {
+                throw new AppError(400, `Date is required for log at index ${i}.`);
+            }
+            if (!log.scores || !Array.isArray(log.scores) || log.scores.length === 0) {
+                throw new AppError(400, `Scores array is required for log at index ${i}.`);
+            }
+
+            // Check for duplicate symptom IDs in each log
+            const ids = log.scores.map(s => s.symptomId);
+            if (new Set(ids).size !== ids.length) {
+                throw new AppError(400, `Duplicate symptom IDs in scores for log at index ${i}.`);
+            }
+        }
+
+        const result = await saveBulkSymptomLogsService(logs);
+
+        res
+            .status(200)
+            .json({
+                message: "Bulk symptom logs processed successfully.",
+                summary: {
+                    total: logs.length,
+                    successful: result.successful.length,
+                    failed: result.failed.length
+                },
+                successful: result.successful,
+                failed: result.failed
+            });
+    } catch (error) {
+        handleError(res, error, error instanceof AppError ? error.statusCode : 500, "Failed to save bulk symptom logs.");
+    }
+};
+
 
 
 export const fetchSymptomLogByDate = async (req, res) => {
@@ -172,22 +222,22 @@ export const getSymptomLogsByUsersAndDates = async (req, res) => {
 
 // POST /api/v1/symptom-logs/dates/batch
 export const getSymptomLogDatesBatch = async (req, res) => {
-  try {
-    const { userIds } = req.body;
+    try {
+        const { userIds } = req.body;
 
-    if (!Array.isArray(userIds) || userIds.length === 0) {
-      throw new AppError(400, "userIds array is required.");
+        if (!Array.isArray(userIds) || userIds.length === 0) {
+            throw new AppError(400, "userIds array is required.");
+        }
+
+        const result = await getSymptomLogDatesBatchService(userIds);
+
+        res.status(200).json(result);
+    } catch (error) {
+        handleError(
+            res,
+            error,
+            error instanceof AppError ? error.statusCode : 500,
+            "Failed to fetch symptom log dates in batch."
+        );
     }
-
-    const result = await getSymptomLogDatesBatchService(userIds);
-
-    res.status(200).json(result);
-  } catch (error) {
-    handleError(
-      res,
-      error,
-      error instanceof AppError ? error.statusCode : 500,
-      "Failed to fetch symptom log dates in batch."
-    );
-  }
 };

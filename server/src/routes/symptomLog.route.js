@@ -6,7 +6,8 @@ import {
     saveSymptomLog,
     getAllSymptomLogs,
     getSymptomLogsByUsersAndDates,
-    getSymptomLogDatesBatch
+    getSymptomLogDatesBatch,
+    saveBulkSymptomLogs
 }
     from "../controllers/symptomLog.controller.js";
 
@@ -15,6 +16,9 @@ const symptomLogRouter = Router();
 // POST /api/v1/symptom-logs
 symptomLogRouter
     .post("/", saveSymptomLog);
+
+symptomLogRouter
+    .post('/bulk', saveBulkSymptomLogs);
 
 symptomLogRouter
     .get("/", getAllSymptomLogs);

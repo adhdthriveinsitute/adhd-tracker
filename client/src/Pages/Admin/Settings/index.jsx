@@ -90,6 +90,34 @@ export default function AdminSettings() {
             Add New Admin
           </NavLink>
         </div>
+
+
+        {/* Add Bulk Users */}
+        <div className="bg-gray-100 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between md:items-center">
+          <div>
+            <h3 className="text-lg font-medium text-gray-700">Add Users</h3>
+            <p className="text-sm text-gray-500">Add multiple users with a CSV</p>
+          </div>
+          <NavLink
+            to="/add-users"
+            className={"btn-primary mt-4 md:!my-0 !text-center"}>
+            Add Bulk Users
+          </NavLink>
+        </div>
+
+        {/* Add Bulk Symptoms */}
+        <div className="bg-gray-100 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between md:items-center">
+          <div>
+            <h3 className="text-lg font-medium text-gray-700">Log Symptoms</h3>
+            <p className="text-sm text-gray-500">Log Bulk Symptoms with a CSV</p>
+          </div>
+          <NavLink
+            to="/log-symptoms"
+            className={"btn-primary mt-4 md:!my-0 !text-center"}>
+            Log Bulk Symptoms
+          </NavLink>
+        </div>
+
       </div>
     </div>
   );

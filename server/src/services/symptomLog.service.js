@@ -2,6 +2,7 @@ import { SymptomLog } from "../models/symptomLog.model.js";
 import { AppError } from "../utils/index.js";
 import { DATE_FORMAT_REGEX, DATE_FORMAT_STRING } from "../constants.js"
 import mongoose from "mongoose";
+import { User } from "../models/user.model.js"
 
 export const saveSymptomLogService = async (userId, date, scores) => {
   try {
@@ -33,6 +34,83 @@ export const saveSymptomLogService = async (userId, date, scores) => {
     throw new AppError(500, error?.message || "Failed to save symptom log.");
   }
 };
+
+
+export const saveBulkSymptomLogsService = async (logs) => {
+  try {
+    const successful = [];
+    const failed = [];
+
+    // Process each log individually to handle partial failures gracefully
+    for (let i = 0; i < logs.length; i++) {
+      const log = logs[i];
+
+      try {
+        // Find user by email
+        const user = await User.findOne({ email: log.email });
+        if (!user) {
+          failed.push({
+            index: i,
+            email: log.email,
+            date: log.date,
+            error: "User not found with this email address."
+          });
+          continue;
+        }
+
+        // Validate date format
+        if (!DATE_FORMAT_REGEX.test(log.date)) {
+          failed.push({
+            index: i,
+            email: log.email,
+            date: log.date,
+            error: `Date must be in ${DATE_FORMAT_STRING} format.`
+          });
+          continue;
+        }
+
+        // Validate scores
+        for (const score of log.scores) {
+          if (!score.symptomId) {
+            throw new Error("Symptom ID is required for all scores.");
+          }
+          if (typeof score.score !== 'number' || score.score < 0 || score.score > 10) {
+            throw new Error(`Score must be a number between 0 and 10 for symptom ${score.symptomId}.`);
+          }
+        }
+
+        // Save the symptom log using existing service
+        const symptomLog = await saveSymptomLogService(user._id, log.date, log.scores);
+
+        successful.push({
+          index: i,
+          email: log.email,
+          date: log.date,
+          symptomLogId: symptomLog._id,
+          symptomsCount: log.scores.length
+        });
+
+      } catch (error) {
+        failed.push({
+          index: i,
+          email: log.email,
+          date: log.date,
+          error: error.message || "Unknown error occurred."
+        });
+      }
+    }
+
+    return {
+      successful,
+      failed
+    };
+
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(500, error?.message || "Failed to process bulk symptom logs.");
+  }
+};
+
 
 
 export const getSymptomLogByUserAndDate = async (userId, date) => {

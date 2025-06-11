@@ -48,7 +48,17 @@ const ProfileEditingPopup = ({ profile, onClose }) => {
                 const year = date.getFullYear();
                 const today = new Date();
                 return year >= 1900 && date <= today;
-            })
+            }),
+        password: yup
+            .string()
+            .min(8, 'Min 8 characters')
+            .matches(/[A-Z]/, 'One uppercase required')
+            .matches(/[a-z]/, 'One lowercase required')
+            .matches(/\d/, 'One number required')
+            .matches(/[!@#$%^&*(),.?":{}|<>]/, 'One special character required'),
+        confirmPassword: yup
+            .string()
+            .oneOf([yup.ref('password')], 'Passwords must match')
     });
 
     const handleSubmit = async (values) => {
@@ -60,8 +70,14 @@ const ProfileEditingPopup = ({ profile, onClose }) => {
                 dateOfBirth: values.dateOfBirth,
                 weight: values.weight,
                 gender: values.gender,
-                type: values.type
+                type: values.type,
             }
+
+            // Only include password if both fields are filled
+            if (values.password && values.confirmPassword) {
+                payload.password = values.password;
+            }
+
             // console.log("Payload", payload);
             // return
             const response = await Axios.put("/users/profile", payload,
@@ -163,6 +179,21 @@ const ProfileEditingPopup = ({ profile, onClose }) => {
                                 ]}
                                 placeholder={"No"}
                             />
+
+                            <TextField
+                                field="password"
+                                type="password"
+                                label_text="Password"
+                                placeholder="Enter new password"
+                            />
+
+                            <TextField
+                                field="confirmPassword"
+                                type="password"
+                                label_text="Confirm Password"
+                                placeholder="Confirm new password"
+                            />
+
 
 
                         </div>

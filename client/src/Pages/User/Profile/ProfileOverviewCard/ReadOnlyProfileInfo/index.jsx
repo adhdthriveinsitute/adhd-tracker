@@ -23,6 +23,12 @@ function ReadOnlyProfileInfo({ profile }) {
                 label_text="Client of ADHD Thrive Institute"
                 text={profile.type === "client" ? "Yes"
                     : profile.type === "non-client" ? "No" : null} />
+            <ReadOnlyInput
+                label_text={`Change password`}
+                text={"●●●●●●●●"} />
+            <ReadOnlyInput
+                label_text={`Confirm change password`}
+                text={"●●●●●●●●"} />
         </div>
     )
 }
