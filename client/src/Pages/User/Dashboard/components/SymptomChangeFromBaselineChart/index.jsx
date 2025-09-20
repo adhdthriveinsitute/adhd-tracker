@@ -99,10 +99,16 @@ const SymptomChangeFromBaselineChart = ({
 
           let score = 0;
           if (selectedSymptom === "all") {
-            score = symptoms.reduce((acc, s) => acc + (s?.value || 0), 0);
+            // Only include numeric values, ignore null values
+            score = symptoms.reduce((acc, s) => {
+              const value = s?.value;
+              return acc + (typeof value === 'number' ? value : 0);
+            }, 0);
           } else {
             const match = symptoms.find(s => s.id === selectedSymptom || s.symptomId === selectedSymptom);
-            score = match?.value ?? 0;
+            const value = match?.value;
+            // Only use numeric values, treat null as 0 for individual symptoms
+            score = typeof value === 'number' ? value : 0;
           }
 
           if (baseline === null) baseline = score;

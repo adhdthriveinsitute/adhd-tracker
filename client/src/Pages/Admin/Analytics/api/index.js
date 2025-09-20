@@ -156,7 +156,7 @@ export const fetchSymptomEntryForDate = async (userId, date, backendSymptoms = n
                 const matchingScore = savedScores.find(s => s.symptomId === symptom.id);
                 return {
                     ...symptom,
-                    value: matchingScore?.score || 0,
+                    value: matchingScore?.score ?? null, // Preserve null values instead of converting to 0
                 };
             });
 

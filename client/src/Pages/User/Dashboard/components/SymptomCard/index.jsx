@@ -27,7 +27,9 @@ const SymptomCard = ({ symptom, onChange, entryAlreadySaved }) => {
           <p className="text-xs text-gray-500">{category}</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold">{value}</span>
+          <span className="text-lg font-semibold">
+            {value === null ? "Not Logged Yet" : value}
+          </span>
           <button
             disabled={entryAlreadySaved}
             onClick={handleReset}
@@ -45,15 +47,15 @@ const SymptomCard = ({ symptom, onChange, entryAlreadySaved }) => {
           type="range"
           min="0"
           max="10"
-          value={value}
+          value={value === null ? 0 : value}
           onChange={(e) => onChange(Number.parseInt(e.target.value, 10))}
           className={`w-full h-2 rounded-lg appearance-none cursor-pointer custom-slider-thumb ${entryAlreadySaved ? 'thumb-gray' : 'thumb-green'
             }`}
 
           style={{
             background: entryAlreadySaved
-              ? `linear-gradient(to right, #6b7280 0%, #6b7280 ${value / 10 * 100}%, #f3f4f6 ${value / 10 * 100}%, #f3f4f6 100%)`
-              : `linear-gradient(to right, #00897b 0%, #00897b ${value / 10 * 100}%, #f3f4f6 ${value / 10 * 100}%, #f3f4f6 100%)`,
+              ? `linear-gradient(to right, #6b7280 0%, #6b7280 ${(value === null ? 0 : value) / 10 * 100}%, #f3f4f6 ${(value === null ? 0 : value) / 10 * 100}%, #f3f4f6 100%)`
+              : `linear-gradient(to right, #00897b 0%, #00897b ${(value === null ? 0 : value) / 10 * 100}%, #f3f4f6 ${(value === null ? 0 : value) / 10 * 100}%, #f3f4f6 100%)`,
           }}
 
         />

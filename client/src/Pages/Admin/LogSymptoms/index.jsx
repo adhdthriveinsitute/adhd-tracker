@@ -51,14 +51,33 @@ const LogSymptoms = () => {
     // Create validation schema dynamically based on available symptoms
     const createValidationSchema = () => {
         const scoreValidation = {};
+        
+        // Define the six optional symptom fields that can be null for bulk-uploaded users
+        const optionalFields = ['itching', 'flushing', 'eczema', 'urinating', 'wheezing', 'other'];
 
         symptoms.forEach(symptom => {
+            const isOptional = optionalFields.includes(symptom.id);
+            
             scoreValidation[symptom.id] = yup
                 .number()
                 .min(0, `${symptom.name} score must be at least 0`)
                 .max(10, `${symptom.name} score must be at most 10`)
                 .typeError(`${symptom.name} score must be a number`)
-                .required(`${symptom.name} score is required`);
+                .nullable() // Allow null values
+                .transform((value, originalValue) => {
+                    // Convert empty strings, undefined to null for optional fields
+                    if (isOptional && (originalValue === '' || originalValue === undefined)) {
+                        return null;
+                    }
+                    return value;
+                })
+                .test('required-unless-optional', `${symptom.name} score is required`, function(value) {
+                    // Only require if not optional or if value is provided
+                    if (isOptional) {
+                        return true; // Optional fields are always valid
+                    }
+                    return value !== null && value !== undefined;
+                });
         });
 
         return yup.object({
@@ -169,7 +188,19 @@ const LogSymptoms = () => {
                 const scores = symptoms.map(symptom => ({
                     symptomId: symptom.id,
                     score: logData[symptom.id]
-                })).filter(score => score.score !== undefined && score.score !== '');
+                })).filter(score => {
+                    // Include scores that are not undefined, empty string, or null (unless it's an optional field)
+                    const optionalFields = ['itching', 'flushing', 'eczema', 'urinating', 'wheezing', 'other'];
+                    const isOptional = optionalFields.includes(score.symptomId);
+                    
+                    if (isOptional) {
+                        // For optional fields, include null values (they will be stored as null in DB)
+                        return score.score !== undefined && score.score !== '';
+                    } else {
+                        // For required fields, exclude null/undefined/empty values
+                        return score.score !== undefined && score.score !== '' && score.score !== null;
+                    }
+                });
 
                 // If validation passes
                 const validLog = {

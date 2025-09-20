@@ -2,7 +2,13 @@ import mongoose from "mongoose";
 
 const symptomScoreSchema = new mongoose.Schema({
   symptomId: { type: String, required: true }, // "hyperactivity"
-  score: { type: Number, min: 1, max: 10, required: true }
+  score: { 
+    type: Number, 
+    min: 0, 
+    max: 10, 
+    required: false, // Allow null values for optional fields
+    default: null
+  }
 }, { _id: false });
 
 const symptomLogSchema = new mongoose.Schema({

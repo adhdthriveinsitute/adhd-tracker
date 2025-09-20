@@ -69,11 +69,26 @@ export const saveBulkSymptomLogsService = async (logs) => {
           continue;
         }
 
+        // Define the six optional symptom fields that can be null for bulk-uploaded users
+        const optionalFields = ['itching', 'flushing', 'eczema', 'urinating', 'wheezing', 'other'];
+        
         // Validate scores
         for (const score of log.scores) {
           if (!score.symptomId) {
             throw new Error("Symptom ID is required for all scores.");
           }
+          
+          // Allow null values for the six optional fields
+          if (score.score === null || score.score === undefined) {
+            if (optionalFields.includes(score.symptomId)) {
+              // For optional fields, null is allowed - skip validation
+              continue;
+            } else {
+              throw new Error(`Score is required for symptom ${score.symptomId}.`);
+            }
+          }
+          
+          // Validate numeric scores
           if (typeof score.score !== 'number' || score.score < 0 || score.score > 10) {
             throw new Error(`Score must be a number between 0 and 10 for symptom ${score.symptomId}.`);
           }

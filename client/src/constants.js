@@ -27,7 +27,7 @@ export const IS_PRODUCTION =
 
 export const BASE_URL = IS_PRODUCTION ?
   "https://adhd-tracker-bxm2.vercel.app/api/v1" :
-  "http://192.168.1.106:5000/api/v1"
+  "http://localhost:5000/api/v1"
 
 
 export const ADHD_APP_ACCESS = "adhd-app-access"
