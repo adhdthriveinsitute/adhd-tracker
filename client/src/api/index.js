@@ -15,7 +15,8 @@ let headers = {
 export const Axios = axios.create({
     baseURL: BASE_URL + "/",
     headers: headers,
-    withCredentials: true
+    withCredentials: true,
+    timeout: 60000 // 60 seconds timeout for bulk operations
 });
 
 // Using this because we might have to cancel requests

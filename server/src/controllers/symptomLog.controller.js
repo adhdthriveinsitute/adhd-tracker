@@ -75,18 +75,22 @@ export const saveBulkSymptomLogs = async (req, res) => {
 
         const result = await saveBulkSymptomLogsService(logs);
 
-        res
-            .status(200)
-            .json({
+        // Only return success if all logs were processed successfully
+        if (result.failed.length === 0) {
+            res.status(200).json({
                 message: "Bulk symptom logs processed successfully.",
-                summary: {
-                    total: logs.length,
-                    successful: result.successful.length,
-                    failed: result.failed.length
-                },
-                successful: result.successful,
+                success: true,
+                totalProcessed: result.successful.length
+            });
+        } else {
+            res.status(400).json({
+                message: "Some symptom logs failed to process.",
+                success: false,
+                totalProcessed: result.successful.length,
+                failedCount: result.failed.length,
                 failed: result.failed
             });
+        }
     } catch (error) {
         handleError(res, error, error instanceof AppError ? error.statusCode : 500, "Failed to save bulk symptom logs.");
     }

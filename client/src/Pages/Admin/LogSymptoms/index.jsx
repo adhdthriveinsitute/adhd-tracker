@@ -266,26 +266,20 @@ const LogSymptoms = () => {
         setIsLogging(true);
 
         try {
+            console.log('Sending bulk request with', validLogs.length, 'logs');
             // Use the new bulk endpoint
             const response = await Axios.post('/symptom-logs/bulk', {
                 logs: validLogs
             });
 
-            const { summary, successful, failed } = response.data;
+            console.log('Bulk response received:', response.data);
+            const { success, totalProcessed, message } = response.data;
 
-            if (summary.successful > 0 && summary.failed === 0) {
-                SuccessNotification(`Successfully logged symptoms for ${summary.successful} entries!`);
+            if (success) {
+                SuccessNotification(`Successfully logged symptoms for ${totalProcessed} entries!`);
                 resetForm();
-            } else if (summary.successful > 0 && summary.failed > 0) {
-                SuccessNotification(`Logged ${summary.successful} entries. ${summary.failed} failed.`);
-                console.error('Failed logs:', failed);
-
-                // Show detailed error information
-                const failedEmails = failed.map(f => f.email).join(', ');
-                ErrorNotification(`Failed to log symptoms for: ${failedEmails}`);
             } else {
-                ErrorNotification('Failed to log symptoms. Please try again.');
-                console.error('All logs failed:', failed);
+                ErrorNotification(message || 'Failed to log symptoms. Please try again.');
             }
 
         } catch (error) {
