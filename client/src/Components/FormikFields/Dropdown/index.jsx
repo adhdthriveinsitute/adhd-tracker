@@ -1,6 +1,6 @@
 import { Field } from "formik";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 
 const Dropdown = ({
     field,
@@ -10,12 +10,14 @@ const Dropdown = ({
     className = "",
     disableFormik = false,
     value,
-    onChange
+    onChange,
+    searchable = false
 }) => {
     const [isOpen, setIsOpen] = useState(false);
-
+    const [searchTerm, setSearchTerm] = useState("");
 
     const dropdownRef = useRef(null);
+    const searchInputRef = useRef(null);
 
     // Close dropdown on outside click
     useEffect(() => {
@@ -27,6 +29,23 @@ const Dropdown = ({
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    // Auto-focus search input when dropdown opens
+    useEffect(() => {
+        if (isOpen && searchable && searchInputRef.current) {
+            searchInputRef.current.focus();
+        }
+        if (!isOpen) {
+            setSearchTerm("");
+        }
+    }, [isOpen, searchable]);
+
+    // Filter options based on search term
+    const filteredOptions = searchable && searchTerm
+        ? options.filter(option =>
+            option.label.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        : options;
 
 
     if (disableFormik) {
@@ -52,21 +71,45 @@ const Dropdown = ({
                 </button>
 
                 {isOpen && (
-                    <ul className="absolute w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 overflow-hidden overflow-y-auto max-h-60">
-                        {options.map(option => (
-                            <li
-                                key={option.value}
-                                className={`px-4 py-3 cursor-pointer transition-all 
-            ${value === option.value ? "bg-c-zinc/80 font-semibold text-white" : "hover:bg-gray-100"}`}
-                                onClick={() => {
-                                    onChange?.(option.value);
-                                    setIsOpen(false);
-                                }}
-                            >
-                                {option.label}
-                            </li>
-                        ))}
-                    </ul>
+                    <div className="absolute w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 overflow-hidden">
+                        {searchable && (
+                            <div className="p-2 border-b border-gray-200 sticky top-0 bg-white">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <input
+                                        ref={searchInputRef}
+                                        type="text"
+                                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-c-zinc/50 focus:border-c-zinc"
+                                        placeholder="Search..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                        <ul className="overflow-y-auto max-h-60">
+                            {filteredOptions.length > 0 ? (
+                                filteredOptions.map(option => (
+                                    <li
+                                        key={option.value}
+                                        className={`px-4 py-3 cursor-pointer transition-all 
+                ${value === option.value ? "bg-c-zinc/80 font-semibold text-white" : "hover:bg-gray-100"}`}
+                                        onClick={() => {
+                                            onChange?.(option.value);
+                                            setIsOpen(false);
+                                        }}
+                                    >
+                                        {option.label}
+                                    </li>
+                                ))
+                            ) : (
+                                <li className="px-4 py-3 text-gray-500 text-center">
+                                    No results found
+                                </li>
+                            )}
+                        </ul>
+                    </div>
                 )}
             </div>
 
@@ -110,21 +153,45 @@ const Dropdown = ({
                             </button>
 
                             {isOpen && (
-                                <ul className="absolute w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 overflow-hidden">
-                                    {options.map(option => (
-                                        <li
-                                            key={option.value}
-                                            className={`px-4 py-3 cursor-pointer transition-all 
-                        ${selected === option.value ? "bg-c-zinc/80 font-semibold text-white" : "hover:bg-gray-100"}`}
-                                            onClick={() => {
-                                                setSelected(option.value);
-                                                setIsOpen(false);
-                                            }}
-                                        >
-                                            {option.label}
-                                        </li>
-                                    ))}
-                                </ul>
+                                <div className="absolute w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 overflow-hidden">
+                                    {searchable && (
+                                        <div className="p-2 border-b border-gray-200 sticky top-0 bg-white">
+                                            <div className="relative">
+                                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                <input
+                                                    ref={searchInputRef}
+                                                    type="text"
+                                                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-c-zinc/50 focus:border-c-zinc"
+                                                    placeholder="Search..."
+                                                    value={searchTerm}
+                                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                    <ul className="overflow-y-auto max-h-60">
+                                        {filteredOptions.length > 0 ? (
+                                            filteredOptions.map(option => (
+                                                <li
+                                                    key={option.value}
+                                                    className={`px-4 py-3 cursor-pointer transition-all 
+                            ${selected === option.value ? "bg-c-zinc/80 font-semibold text-white" : "hover:bg-gray-100"}`}
+                                                    onClick={() => {
+                                                        setSelected(option.value);
+                                                        setIsOpen(false);
+                                                    }}
+                                                >
+                                                    {option.label}
+                                                </li>
+                                            ))
+                                        ) : (
+                                            <li className="px-4 py-3 text-gray-500 text-center">
+                                                No results found
+                                            </li>
+                                        )}
+                                    </ul>
+                                </div>
                             )}
 
                             {error && <p className="error-message">{meta.error}</p>}

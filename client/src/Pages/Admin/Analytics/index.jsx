@@ -74,7 +74,7 @@ const Analytics = () => {
     const allUsersOption = { value: "all", label: "All Users" };
     const mappedUsers = users.map(user => ({
       value: user._id,
-      label: user.name
+      label: user.email
     }));
     return [allUsersOption, ...mappedUsers];
   }, [users]);
@@ -87,7 +87,7 @@ const Analytics = () => {
 
   const getUserLabel = useCallback((id) => {
     if (id === "all") return "All Users";
-    return users.find(u => u._id === id)?.name || id;
+    return users.find(u => u._id === id)?.email || id;
   }, [users]);
 
   // Handle range changes - auto-set dates for predefined ranges
@@ -200,6 +200,7 @@ const Analytics = () => {
             onChange={handleUserChange}
             placeholder="Select User"
             disableFormik
+            searchable
           />
           <Dropdown
             field="symptom"

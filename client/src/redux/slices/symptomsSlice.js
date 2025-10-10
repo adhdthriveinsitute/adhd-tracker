@@ -281,7 +281,7 @@ export const selectUserOptions = (state) => {
   const users = selectUsers(state);
   return [
     { label: 'All Users', value: 'all' },
-    ...users.map(u => ({ label: u.name, value: u._id }))
+    ...users.map(u => ({ label: u.email, value: u._id }))
   ];
 };
 
