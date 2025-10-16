@@ -1,17 +1,17 @@
 import mongoose from "mongoose";
 import { connectToMongoDB } from "../config/db/index.js";
-import { Symptom } from "../models/symptom.model.js";
+import { SymptomLog } from "../models/symptomLog.model.js";
 
-const deleteAllSymptoms = async () => {
+const deleteAllSymptomLogs = async () => {
     try {
         // Connect to MongoDB
         await connectToMongoDB();
         console.log("Connected to MongoDB successfully");
 
-        // Delete all symptoms
-        const result = await Symptom.deleteMany({});
+        // Delete all symptom logs
+        const result = await SymptomLog.deleteMany({});
         
-        console.log(`\n✓ Successfully deleted ${result.deletedCount} symptom(s) from the collection`);
+        console.log(`\n✓ Successfully deleted ${result.deletedCount} symptom log(s) from the collection`);
         console.log("✓ Collection structure preserved\n");
 
         // Close the connection
@@ -20,7 +20,7 @@ const deleteAllSymptoms = async () => {
         
         process.exit(0);
     } catch (error) {
-        console.error("Error deleting symptoms:", error);
+        console.error("Error deleting symptom logs:", error);
         
         // Ensure connection is closed even on error
         if (mongoose.connection.readyState !== 0) {
@@ -32,5 +32,4 @@ const deleteAllSymptoms = async () => {
 };
 
 // Execute the script
-deleteAllSymptoms();
-
+deleteAllSymptomLogs();
