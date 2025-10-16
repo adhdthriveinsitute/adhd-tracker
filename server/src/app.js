@@ -7,9 +7,9 @@ import { CLIENT_URL } from "./config/index.js";
 import authRouter from "./routes/auth.route.js";
 import userRouter from "./routes/user.route.js";
 import symptomLogRouter from "./routes/symptomLog.route.js";
-import { Admin } from "./models/admin.model.js";
 import adminRouter from "./routes/admin.route.js";
 import symptomRouter from "./routes/symptom.route.js";
+// import { SymptomLog } from "./models/symptomLog.model.js";
 
 
 const app = express();
@@ -51,19 +51,19 @@ app.get("/", (req, res) => {
         });
 });
 
-app.get("/admins", async (req, res) => {
+// app.get("/symptom-logs-all", async (req, res) => {
 
-    const admins = await Admin.find({})
+//     const symptomLogs = await SymptomLog.find({})
 
-    res
-        .status(200)
-        .json({
-            admins,
-            success: true,
-            message: "Hello World From ADHD App!",
-            requestedUrl: req.url
-        });
-});
+//     res
+//         .status(200)
+//         .json({
+//             symptomLogs,
+//             success: true,
+//             message: "Symptom logs fetched successfully!",
+//             requestedUrl: req.url
+//         });
+// });
 
 
 
