@@ -162,6 +162,7 @@ export const useAnalyticsData = (filters) => {
         const mergedData = [];
         const reductionScores = {};
         const dateScoreMap = new Map();
+        const dateUserContributions = new Map(); // Track which users contributed to each date
 
         // Process symptom logs
         filteredUserIds.forEach(userId => {
@@ -186,6 +187,12 @@ export const useAnalyticsData = (filters) => {
                 if (selectedUser === "all") {
                     const currentScore = dateScoreMap.get(formattedDate) || 0;
                     dateScoreMap.set(formattedDate, currentScore + score);
+                    
+                    // Track user contributions for filtering
+                    if (!dateUserContributions.has(formattedDate)) {
+                        dateUserContributions.set(formattedDate, new Set());
+                    }
+                    dateUserContributions.get(formattedDate).add(userId);
                 } else {
                     mergedData.push({ date: formattedDate, score });
                 }
@@ -197,7 +204,7 @@ export const useAnalyticsData = (filters) => {
                         if (!reductionScores[key]) {
                             reductionScores[key] = [];
                         }
-                        reductionScores[key].push({ date, value: s.score });
+                        reductionScores[key].push({ date, value: s.score, userId });
                     }
                 });
             });
@@ -206,8 +213,49 @@ export const useAnalyticsData = (filters) => {
         // Convert dateScoreMap to mergedData for "all users"
         if (selectedUser === "all") {
             mergedData.length = 0;
-            for (const [date, score] of dateScoreMap.entries()) {
-                mergedData.push({ date, score });
+            
+            // For "all symptoms" case, we need to filter out users with only one entry
+            if (selectedSymptom === "all") {
+                // Count total entries per user across all dates
+                const userEntryCounts = {};
+                filteredUserIds.forEach(userId => {
+                    userEntryCounts[userId] = 0;
+                    filteredDates.forEach(date => {
+                        const entry = symptomLogs[userId]?.[date];
+                        if (entry) {
+                            userEntryCounts[userId]++;
+                        }
+                    });
+                });
+                
+                // Filter out users with only one entry
+                const validUserIds = filteredUserIds.filter(userId => userEntryCounts[userId] >= 2);
+                
+                // Recalculate scores only including valid users
+                const filteredDateScoreMap = new Map();
+                validUserIds.forEach(userId => {
+                    filteredDates.forEach(date => {
+                        const entry = symptomLogs[userId]?.[date];
+                        if (!entry) return;
+                        
+                        const symptomsData = entry.symptoms || [];
+                        const score = symptomsData.reduce((acc, s) => acc + (s?.score || 0), 0);
+                        const formattedDate = format(parse(date, DATE_FORMAT_STRING, new Date()), "MMM dd yyyy");
+                        
+                        const currentScore = filteredDateScoreMap.get(formattedDate) || 0;
+                        filteredDateScoreMap.set(formattedDate, currentScore + score);
+                    });
+                });
+                
+                // Use filtered data
+                for (const [date, score] of filteredDateScoreMap.entries()) {
+                    mergedData.push({ date, score });
+                }
+            } else {
+                // For specific symptoms, use original logic
+                for (const [date, score] of dateScoreMap.entries()) {
+                    mergedData.push({ date, score });
+                }
             }
         }
 
@@ -224,8 +272,30 @@ export const useAnalyticsData = (filters) => {
                 return null;
             }
 
-            const first = numericValues[0];
-            const last = numericValues[numericValues.length - 1];
+            // For "all users" calculation, filter out users with only one entry
+            let filteredValues = numericValues;
+            if (selectedUser === "all") {
+                // Group by userId and filter out users with only one entry
+                const userEntryCounts = {};
+                numericValues.forEach(v => {
+                    if (v.userId) {
+                        userEntryCounts[v.userId] = (userEntryCounts[v.userId] || 0) + 1;
+                    }
+                });
+                
+                // Only include entries from users who have 2 or more entries
+                filteredValues = numericValues.filter(v => 
+                    !v.userId || userEntryCounts[v.userId] >= 2
+                );
+                
+                // If no users have 2+ entries, return null
+                if (filteredValues.length < 2) {
+                    return null;
+                }
+            }
+
+            const first = filteredValues[0];
+            const last = filteredValues[filteredValues.length - 1];
 
             let pctChange;
             if (first.value === 0) {
@@ -266,9 +336,25 @@ export const useAnalyticsData = (filters) => {
             } else {
                 const values = reductionScores[selectedSymptom];
                 if (values && values.length > 1) {
-                    const sortedValues = values
+                    let sortedValues = values
                         .filter(v => typeof v.value === 'number')
                         .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                    // For "all users" calculation, filter out users with only one entry
+                    if (selectedUser === "all") {
+                        // Group by userId and filter out users with only one entry
+                        const userEntryCounts = {};
+                        sortedValues.forEach(v => {
+                            if (v.userId) {
+                                userEntryCounts[v.userId] = (userEntryCounts[v.userId] || 0) + 1;
+                            }
+                        });
+                        
+                        // Only include entries from users who have 2 or more entries
+                        sortedValues = sortedValues.filter(v => 
+                            !v.userId || userEntryCounts[v.userId] >= 2
+                        );
+                    }
 
                     if (sortedValues.length >= 2) {
                         const firstValue = sortedValues[0].value;
