@@ -216,14 +216,23 @@ export const useAnalyticsData = (filters) => {
             
             // For "all symptoms" case, we need to filter out users with only one entry
             if (selectedSymptom === "all") {
-                // Count total entries per user across all dates
+                // First, get all valid users who have at least 2 entries
                 const userEntryCounts = {};
+                const userSymptomLogs = {}; // Store all logs per user
+                
+                // Count entries and collect logs per user
                 filteredUserIds.forEach(userId => {
                     userEntryCounts[userId] = 0;
+                    userSymptomLogs[userId] = [];
+                    
                     filteredDates.forEach(date => {
                         const entry = symptomLogs[userId]?.[date];
                         if (entry) {
                             userEntryCounts[userId]++;
+                            userSymptomLogs[userId].push({
+                                date,
+                                symptoms: entry.symptoms || []
+                            });
                         }
                     });
                 });
@@ -235,23 +244,20 @@ export const useAnalyticsData = (filters) => {
                 if (validUserIds.length === 0) {
                     mergedData.length = 0;
                 } else {
-                    // Recalculate scores only including valid users
+                    // Process only valid users' data
                     const filteredDateScoreMap = new Map();
+                    
                     validUserIds.forEach(userId => {
-                        filteredDates.forEach(date => {
-                            const entry = symptomLogs[userId]?.[date];
-                            if (!entry) return;
-                            
-                            const symptomsData = entry.symptoms || [];
-                            const score = symptomsData.reduce((acc, s) => acc + (s?.score || 0), 0);
-                            const formattedDate = format(parse(date, DATE_FORMAT_STRING, new Date()), "MMM dd yyyy");
+                        userSymptomLogs[userId].forEach(entry => {
+                            const formattedDate = format(parse(entry.date, DATE_FORMAT_STRING, new Date()), "MMM dd yyyy");
+                            const score = entry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
                             
                             const currentScore = filteredDateScoreMap.get(formattedDate) || 0;
                             filteredDateScoreMap.set(formattedDate, currentScore + score);
                         });
                     });
                     
-                    // Use filtered data
+                    // Convert filtered data to mergedData format
                     for (const [date, score] of filteredDateScoreMap.entries()) {
                         mergedData.push({ date, score });
                     }
@@ -282,21 +288,31 @@ export const useAnalyticsData = (filters) => {
             if (selectedUser === "all") {
                 // For "all symptoms" case, we need to count total entries per user across all symptoms
                 if (selectedSymptom === "all") {
-                    // Count total entries per user across all dates and all symptoms
-                    const userTotalEntryCounts = {};
+                    // Count total entries per user across all dates
+                    const userEntryCounts = {};
+                    const userSymptomLogs = {}; // Store all logs per user
+                    
+                    // Count entries and collect logs per user
                     filteredUserIds.forEach(userId => {
-                        userTotalEntryCounts[userId] = 0;
+                        userEntryCounts[userId] = 0;
+                        userSymptomLogs[userId] = [];
+                        
                         filteredDates.forEach(date => {
                             const entry = symptomLogs[userId]?.[date];
                             if (entry) {
-                                userTotalEntryCounts[userId]++;
+                                userEntryCounts[userId]++;
                             }
                         });
                     });
                     
                     // Only include entries from users who have 2 or more total entries
+                    const validUserIds = new Set(
+                        filteredUserIds.filter(userId => userEntryCounts[userId] >= 2)
+                    );
+                    
+                    // Filter values to only include valid users
                     filteredValues = numericValues.filter(v => 
-                        !v.userId || userTotalEntryCounts[v.userId] >= 2
+                        !v.userId || validUserIds.has(v.userId)
                     );
                 } else {
                     // For specific symptoms, count entries per user for this symptom only
