@@ -219,20 +219,21 @@ export const useAnalyticsData = (filters) => {
                 // First, get all valid users who have at least 2 entries
                 const userEntryCounts = {};
                 const userSymptomLogs = {}; // Store all logs per user
+                const userTotalScores = {}; // Store total scores per user per date
                 
                 // Count entries and collect logs per user
                 filteredUserIds.forEach(userId => {
                     userEntryCounts[userId] = 0;
                     userSymptomLogs[userId] = [];
+                    userTotalScores[userId] = new Map(); // date -> total score
                     
                     filteredDates.forEach(date => {
                         const entry = symptomLogs[userId]?.[date];
                         if (entry) {
                             userEntryCounts[userId]++;
-                            userSymptomLogs[userId].push({
-                                date,
-                                symptoms: entry.symptoms || []
-                            });
+                            const totalScore = (entry.symptoms || []).reduce((acc, s) => acc + (s?.score || 0), 0);
+                            const formattedDate = format(parse(date, DATE_FORMAT_STRING, new Date()), "MMM dd yyyy");
+                            userTotalScores[userId].set(formattedDate, totalScore);
                         }
                     });
                 });
@@ -244,23 +245,24 @@ export const useAnalyticsData = (filters) => {
                 if (validUserIds.length === 0) {
                     mergedData.length = 0;
                 } else {
-                    // Process only valid users' data
-                    const filteredDateScoreMap = new Map();
-                    
+                    // For each valid user, get their first and last entry dates
                     validUserIds.forEach(userId => {
-                        userSymptomLogs[userId].forEach(entry => {
-                            const formattedDate = format(parse(entry.date, DATE_FORMAT_STRING, new Date()), "MMM dd yyyy");
-                            const score = entry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
+                        const userDates = Array.from(userTotalScores[userId].keys()).sort((a, b) => new Date(a) - new Date(b));
+                        if (userDates.length >= 2) {
+                            const firstDate = userDates[0];
+                            const lastDate = userDates[userDates.length - 1];
                             
-                            const currentScore = filteredDateScoreMap.get(formattedDate) || 0;
-                            filteredDateScoreMap.set(formattedDate, currentScore + score);
-                        });
+                            // Add these dates to mergedData
+                            mergedData.push({
+                                date: firstDate,
+                                score: userTotalScores[userId].get(firstDate)
+                            });
+                            mergedData.push({
+                                date: lastDate,
+                                score: userTotalScores[userId].get(lastDate)
+                            });
+                        }
                     });
-                    
-                    // Convert filtered data to mergedData format
-                    for (const [date, score] of filteredDateScoreMap.entries()) {
-                        mergedData.push({ date, score });
-                    }
                 }
             } else {
                 // For specific symptoms, use original logic
@@ -290,30 +292,49 @@ export const useAnalyticsData = (filters) => {
                 if (selectedSymptom === "all") {
                     // Count total entries per user across all dates
                     const userEntryCounts = {};
-                    const userSymptomLogs = {}; // Store all logs per user
+                    const userTotalScores = {}; // Store total scores per user per date
                     
-                    // Count entries and collect logs per user
+                    // Count entries and collect total scores per user
                     filteredUserIds.forEach(userId => {
                         userEntryCounts[userId] = 0;
-                        userSymptomLogs[userId] = [];
+                        userTotalScores[userId] = new Map(); // date -> total score
                         
                         filteredDates.forEach(date => {
                             const entry = symptomLogs[userId]?.[date];
                             if (entry) {
                                 userEntryCounts[userId]++;
+                                const totalScore = (entry.symptoms || []).reduce((acc, s) => acc + (s?.score || 0), 0);
+                                const formattedDate = format(parse(date, DATE_FORMAT_STRING, new Date()), "MMM dd yyyy");
+                                userTotalScores[userId].set(formattedDate, totalScore);
                             }
                         });
                     });
                     
-                    // Only include entries from users who have 2 or more total entries
-                    const validUserIds = new Set(
-                        filteredUserIds.filter(userId => userEntryCounts[userId] >= 2)
-                    );
+                    // Filter out users with fewer than 2 entries
+                    const validUserIds = filteredUserIds.filter(userId => userEntryCounts[userId] >= 2);
                     
-                    // Filter values to only include valid users
-                    filteredValues = numericValues.filter(v => 
-                        !v.userId || validUserIds.has(v.userId)
-                    );
+                    // Create new values array with only first and last entries for each valid user
+                    const newValues = [];
+                    validUserIds.forEach(userId => {
+                        const userDates = Array.from(userTotalScores[userId].keys()).sort((a, b) => new Date(a) - new Date(b));
+                        if (userDates.length >= 2) {
+                            const firstDate = userDates[0];
+                            const lastDate = userDates[userDates.length - 1];
+                            
+                            newValues.push({
+                                date: firstDate,
+                                value: userTotalScores[userId].get(firstDate),
+                                userId
+                            });
+                            newValues.push({
+                                date: lastDate,
+                                value: userTotalScores[userId].get(lastDate),
+                                userId
+                            });
+                        }
+                    });
+                    
+                    filteredValues = newValues;
                 } else {
                     // For specific symptoms, count entries per user for this symptom only
                     const userEntryCounts = {};
