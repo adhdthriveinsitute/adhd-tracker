@@ -219,21 +219,20 @@ export const useAnalyticsData = (filters) => {
                 // First, get all valid users who have at least 2 entries
                 const userEntryCounts = {};
                 const userSymptomLogs = {}; // Store all logs per user
-                const userTotalScores = {}; // Store total scores per user per date
                 
                 // Count entries and collect logs per user
                 filteredUserIds.forEach(userId => {
                     userEntryCounts[userId] = 0;
                     userSymptomLogs[userId] = [];
-                    userTotalScores[userId] = new Map(); // date -> total score
                     
                     filteredDates.forEach(date => {
                         const entry = symptomLogs[userId]?.[date];
                         if (entry) {
                             userEntryCounts[userId]++;
-                            const totalScore = (entry.symptoms || []).reduce((acc, s) => acc + (s?.score || 0), 0);
-                            const formattedDate = format(parse(date, DATE_FORMAT_STRING, new Date()), "MMM dd yyyy");
-                            userTotalScores[userId].set(formattedDate, totalScore);
+                            userSymptomLogs[userId].push({
+                                date,
+                                symptoms: entry.symptoms || []
+                            });
                         }
                     });
                 });
@@ -245,24 +244,29 @@ export const useAnalyticsData = (filters) => {
                 if (validUserIds.length === 0) {
                     mergedData.length = 0;
                 } else {
-                    // For each valid user, get their first and last entry dates
+                    // For "all symptoms" with "all users", we need to calculate individual user changes
+                    // and then aggregate them properly for the chart
+                    const filteredDateScoreMap = new Map();
+                    
                     validUserIds.forEach(userId => {
-                        const userDates = Array.from(userTotalScores[userId].keys()).sort((a, b) => new Date(a) - new Date(b));
-                        if (userDates.length >= 2) {
-                            const firstDate = userDates[0];
-                            const lastDate = userDates[userDates.length - 1];
+                        // Sort user's entries by date
+                        const sortedEntries = userSymptomLogs[userId].sort((a, b) => 
+                            new Date(a.date) - new Date(b.date)
+                        );
+                        
+                        sortedEntries.forEach(entry => {
+                            const formattedDate = format(parse(entry.date, DATE_FORMAT_STRING, new Date()), "MMM dd yyyy");
+                            const score = entry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
                             
-                            // Add these dates to mergedData
-                            mergedData.push({
-                                date: firstDate,
-                                score: userTotalScores[userId].get(firstDate)
-                            });
-                            mergedData.push({
-                                date: lastDate,
-                                score: userTotalScores[userId].get(lastDate)
-                            });
-                        }
+                            const currentScore = filteredDateScoreMap.get(formattedDate) || 0;
+                            filteredDateScoreMap.set(formattedDate, currentScore + score);
+                        });
                     });
+                    
+                    // Convert filtered data to mergedData format
+                    for (const [date, score] of filteredDateScoreMap.entries()) {
+                        mergedData.push({ date, score });
+                    }
                 }
             } else {
                 // For specific symptoms, use original logic
@@ -288,24 +292,25 @@ export const useAnalyticsData = (filters) => {
             // For "all users" calculation, filter out users with only one entry
             let filteredValues = numericValues;
             if (selectedUser === "all") {
-                // For "all symptoms" case, we need to count total entries per user across all symptoms
+                // For "all symptoms" case, we need to calculate individual user changes first
                 if (selectedSymptom === "all") {
                     // Count total entries per user across all dates
                     const userEntryCounts = {};
-                    const userTotalScores = {}; // Store total scores per user per date
+                    const userSymptomLogs = {}; // Store all logs per user
                     
-                    // Count entries and collect total scores per user
+                    // Count entries and collect logs per user
                     filteredUserIds.forEach(userId => {
                         userEntryCounts[userId] = 0;
-                        userTotalScores[userId] = new Map(); // date -> total score
+                        userSymptomLogs[userId] = [];
                         
                         filteredDates.forEach(date => {
                             const entry = symptomLogs[userId]?.[date];
                             if (entry) {
                                 userEntryCounts[userId]++;
-                                const totalScore = (entry.symptoms || []).reduce((acc, s) => acc + (s?.score || 0), 0);
-                                const formattedDate = format(parse(date, DATE_FORMAT_STRING, new Date()), "MMM dd yyyy");
-                                userTotalScores[userId].set(formattedDate, totalScore);
+                                userSymptomLogs[userId].push({
+                                    date,
+                                    symptoms: entry.symptoms || []
+                                });
                             }
                         });
                     });
@@ -313,28 +318,51 @@ export const useAnalyticsData = (filters) => {
                     // Filter out users with fewer than 2 entries
                     const validUserIds = filteredUserIds.filter(userId => userEntryCounts[userId] >= 2);
                     
-                    // Create new values array with only first and last entries for each valid user
-                    const newValues = [];
+                    if (validUserIds.length === 0) {
+                        return null;
+                    }
+                    
+                    // Calculate individual user percentage changes
+                    const userPercentageChanges = [];
+                    
                     validUserIds.forEach(userId => {
-                        const userDates = Array.from(userTotalScores[userId].keys()).sort((a, b) => new Date(a) - new Date(b));
-                        if (userDates.length >= 2) {
-                            const firstDate = userDates[0];
-                            const lastDate = userDates[userDates.length - 1];
+                        const userEntries = userSymptomLogs[userId].sort((a, b) => 
+                            new Date(a.date) - new Date(b.date)
+                        );
+                        
+                        if (userEntries.length >= 2) {
+                            const firstEntry = userEntries[0];
+                            const lastEntry = userEntries[userEntries.length - 1];
                             
-                            newValues.push({
-                                date: firstDate,
-                                value: userTotalScores[userId].get(firstDate),
-                                userId
-                            });
-                            newValues.push({
-                                date: lastDate,
-                                value: userTotalScores[userId].get(lastDate),
-                                userId
-                            });
+                            const firstScore = firstEntry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
+                            const lastScore = lastEntry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
+                            
+                            let pctChange;
+                            if (firstScore === 0) {
+                                pctChange = lastScore === 0 ? 0 : 100;
+                            } else {
+                                pctChange = ((lastScore - firstScore) / firstScore) * 100;
+                            }
+                            
+                            userPercentageChanges.push(pctChange);
                         }
                     });
                     
-                    filteredValues = newValues;
+                    if (userPercentageChanges.length === 0) {
+                        return null;
+                    }
+                    
+                    // Calculate average percentage change
+                    const avgPctChange = userPercentageChanges.reduce((sum, change) => sum + change, 0) / userPercentageChanges.length;
+                    
+                    const symptomName = symptoms.find(s => s.id === symptomId)?.name || symptomId;
+                    
+                    return {
+                        symptom: symptomName,
+                        avgPctChange: Math.abs(avgPctChange),
+                        rawPctChange: avgPctChange,
+                        formattedChange: `${avgPctChange > 0 ? "+" : ""}${avgPctChange.toFixed(1)}%`
+                    };
                 } else {
                     // For specific symptoms, count entries per user for this symptom only
                     const userEntryCounts = {};
@@ -385,16 +413,81 @@ export const useAnalyticsData = (filters) => {
 
         if (mergedData.length > 1) {
             if (selectedSymptom === "all") {
-                // For "all symptoms" case, the mergedData is already filtered to exclude users with < 2 entries
-                const sortedData = [...mergedData].sort((a, b) => new Date(a.date) - new Date(b.date));
-                const firstScore = sortedData[0]?.score ?? 0;
-                const lastScore = sortedData[sortedData.length - 1]?.score ?? 0;
-
-                if (firstScore === 0) {
-                    overallChangeValue = lastScore === 0 ? "No change" : `Started from 0 → ${lastScore}`;
+                // For "all symptoms" case, calculate individual user changes and average them
+                if (selectedUser === "all") {
+                    // Count total entries per user across all dates
+                    const userEntryCounts = {};
+                    const userSymptomLogs = {}; // Store all logs per user
+                    
+                    // Count entries and collect logs per user
+                    filteredUserIds.forEach(userId => {
+                        userEntryCounts[userId] = 0;
+                        userSymptomLogs[userId] = [];
+                        
+                        filteredDates.forEach(date => {
+                            const entry = symptomLogs[userId]?.[date];
+                            if (entry) {
+                                userEntryCounts[userId]++;
+                                userSymptomLogs[userId].push({
+                                    date,
+                                    symptoms: entry.symptoms || []
+                                });
+                            }
+                        });
+                    });
+                    
+                    // Filter out users with fewer than 2 entries
+                    const validUserIds = filteredUserIds.filter(userId => userEntryCounts[userId] >= 2);
+                    
+                    if (validUserIds.length === 0) {
+                        overallChangeValue = "Not enough data";
+                    } else {
+                        // Calculate individual user percentage changes
+                        const userPercentageChanges = [];
+                        
+                        validUserIds.forEach(userId => {
+                            const userEntries = userSymptomLogs[userId].sort((a, b) => 
+                                new Date(a.date) - new Date(b.date)
+                            );
+                            
+                            if (userEntries.length >= 2) {
+                                const firstEntry = userEntries[0];
+                                const lastEntry = userEntries[userEntries.length - 1];
+                                
+                                const firstScore = firstEntry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
+                                const lastScore = lastEntry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
+                                
+                                let pctChange;
+                                if (firstScore === 0) {
+                                    pctChange = lastScore === 0 ? 0 : 100;
+                                } else {
+                                    pctChange = ((lastScore - firstScore) / firstScore) * 100;
+                                }
+                                
+                                userPercentageChanges.push(pctChange);
+                            }
+                        });
+                        
+                        if (userPercentageChanges.length === 0) {
+                            overallChangeValue = "Not enough data";
+                        } else {
+                            // Calculate average percentage change
+                            const avgPctChange = userPercentageChanges.reduce((sum, change) => sum + change, 0) / userPercentageChanges.length;
+                            overallChangeValue = `${avgPctChange > 0 ? "+" : ""}${avgPctChange.toFixed(2)}%`;
+                        }
+                    }
                 } else {
-                    const change = ((lastScore - firstScore) / firstScore) * 100;
-                    overallChangeValue = `${change > 0 ? "+" : ""}${change.toFixed(2)}%`;
+                    // For individual user, use the mergedData directly
+                    const sortedData = [...mergedData].sort((a, b) => new Date(a.date) - new Date(b.date));
+                    const firstScore = sortedData[0]?.score ?? 0;
+                    const lastScore = sortedData[sortedData.length - 1]?.score ?? 0;
+
+                    if (firstScore === 0) {
+                        overallChangeValue = lastScore === 0 ? "No change" : `Started from 0 → ${lastScore}`;
+                    } else {
+                        const change = ((lastScore - firstScore) / firstScore) * 100;
+                        overallChangeValue = `${change > 0 ? "+" : ""}${change.toFixed(2)}%`;
+                    }
                 }
             } else {
                 const values = reductionScores[selectedSymptom];
