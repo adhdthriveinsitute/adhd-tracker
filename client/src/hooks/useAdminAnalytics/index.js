@@ -270,8 +270,8 @@ export const useAnalyticsData = (filters) => {
                 }
             } else {
                 // For specific symptoms, use original logic
-                for (const [date, score] of dateScoreMap.entries()) {
-                    mergedData.push({ date, score });
+            for (const [date, score] of dateScoreMap.entries()) {
+                mergedData.push({ date, score });
                 }
             }
         }
@@ -374,13 +374,13 @@ export const useAnalyticsData = (filters) => {
         } else {
             // Original logic for specific symptoms
             averagedReductions = Object.entries(reductionScores).map(([symptomId, values]) => {
-                const numericValues = values
-                    .filter(v => typeof v.value === "number")
-                    .sort((a, b) => new Date(a.date) - new Date(b.date));
+            const numericValues = values
+                .filter(v => typeof v.value === "number")
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-                if (numericValues.length < 2) {
-                    return null;
-                }
+            if (numericValues.length < 2) {
+                return null;
+            }
 
                 // For "all users" calculation, filter out users with only one entry
                 let filteredValues = numericValues;
@@ -407,22 +407,22 @@ export const useAnalyticsData = (filters) => {
                 const first = filteredValues[0];
                 const last = filteredValues[filteredValues.length - 1];
 
-                let pctChange;
-                if (first.value === 0) {
-                    pctChange = last.value === 0 ? 0 : 100;
-                } else {
-                    pctChange = ((last.value - first.value) / first.value) * 100;
-                }
+            let pctChange;
+            if (first.value === 0) {
+                pctChange = last.value === 0 ? 0 : 100;
+            } else {
+                pctChange = ((last.value - first.value) / first.value) * 100;
+            }
 
-                const symptomName = symptoms.find(s => s.id === symptomId)?.name || symptomId;
+            const symptomName = symptoms.find(s => s.id === symptomId)?.name || symptomId;
 
-                return {
-                    symptom: symptomName,
-                    avgPctChange: Math.abs(pctChange),
-                    rawPctChange: pctChange,
-                    formattedChange: `${pctChange > 0 ? "+" : ""}${pctChange.toFixed(1)}%`
-                };
-            }).filter(Boolean);
+            return {
+                symptom: symptomName,
+                avgPctChange: Math.abs(pctChange),
+                rawPctChange: pctChange,
+                formattedChange: `${pctChange > 0 ? "+" : ""}${pctChange.toFixed(1)}%`
+            };
+        }).filter(Boolean);
         }
 
         const topReducedSymptoms = averagedReductions
@@ -447,7 +447,7 @@ export const useAnalyticsData = (filters) => {
                         
                         filteredDates.forEach(date => {
                             const entry = symptomLogs[userId]?.[date];
-                            if (entry) {
+                            if (entry && entry.symptoms && entry.symptoms.length > 0) {
                                 userEntryCounts[userId]++;
                                 userSymptomLogs[userId].push({
                                     date,
@@ -459,6 +459,10 @@ export const useAnalyticsData = (filters) => {
                     
                     // Filter out users with fewer than 2 entries
                     const validUserIds = filteredUserIds.filter(userId => userEntryCounts[userId] >= 2);
+                    
+                    console.log("Overall change - Entry counts:", userEntryCounts);
+                    console.log("Overall change - Valid users:", validUserIds);
+                    console.log("Overall change - Users with 2+ entries:", validUserIds.length);
                     
                     if (validUserIds.length === 0) {
                         overallChangeValue = "Not enough data";
@@ -489,25 +493,28 @@ export const useAnalyticsData = (filters) => {
                             }
                         });
                         
+                        console.log("Overall change - User percentage changes:", userPercentageChanges);
+                        
                         if (userPercentageChanges.length === 0) {
                             overallChangeValue = "Not enough data";
                         } else {
                             // Calculate average percentage change
                             const avgPctChange = userPercentageChanges.reduce((sum, change) => sum + change, 0) / userPercentageChanges.length;
+                            console.log("Overall change - Average percentage change:", avgPctChange);
                             overallChangeValue = `${avgPctChange > 0 ? "+" : ""}${avgPctChange.toFixed(2)}%`;
                         }
                     }
                 } else {
                     // For individual user, use the mergedData directly
-                    const sortedData = [...mergedData].sort((a, b) => new Date(a.date) - new Date(b.date));
-                    const firstScore = sortedData[0]?.score ?? 0;
-                    const lastScore = sortedData[sortedData.length - 1]?.score ?? 0;
+                const sortedData = [...mergedData].sort((a, b) => new Date(a.date) - new Date(b.date));
+                const firstScore = sortedData[0]?.score ?? 0;
+                const lastScore = sortedData[sortedData.length - 1]?.score ?? 0;
 
-                    if (firstScore === 0) {
-                        overallChangeValue = lastScore === 0 ? "No change" : `Started from 0 → ${lastScore}`;
-                    } else {
-                        const change = ((lastScore - firstScore) / firstScore) * 100;
-                        overallChangeValue = `${change > 0 ? "+" : ""}${change.toFixed(2)}%`;
+                if (firstScore === 0) {
+                    overallChangeValue = lastScore === 0 ? "No change" : `Started from 0 → ${lastScore}`;
+                } else {
+                    const change = ((lastScore - firstScore) / firstScore) * 100;
+                    overallChangeValue = `${change > 0 ? "+" : ""}${change.toFixed(2)}%`;
                     }
                 }
             } else {
