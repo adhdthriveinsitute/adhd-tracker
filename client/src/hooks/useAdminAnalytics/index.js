@@ -280,90 +280,87 @@ export const useAnalyticsData = (filters) => {
         mergedData.sort((a, b) => new Date(a.date) - new Date(b.date));
 
         // Calculate reduction data
-        const averagedReductions = Object.entries(reductionScores).map(([symptomId, values]) => {
-            const numericValues = values
-                .filter(v => typeof v.value === "number")
-                .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-            if (numericValues.length < 2) {
-                return null;
-            }
-
-            // For "all users" calculation, filter out users with only one entry
-            let filteredValues = numericValues;
-            if (selectedUser === "all") {
-                // For "all symptoms" case, we need to calculate individual user changes first
-                if (selectedSymptom === "all") {
-                    // Count total entries per user across all dates
-                    const userEntryCounts = {};
-                    const userSymptomLogs = {}; // Store all logs per user
-                    
-                    // Count entries and collect logs per user
-                    filteredUserIds.forEach(userId => {
-                        userEntryCounts[userId] = 0;
-                        userSymptomLogs[userId] = [];
-                        
-                        filteredDates.forEach(date => {
-                            const entry = symptomLogs[userId]?.[date];
-                            if (entry) {
-                                userEntryCounts[userId]++;
-                                userSymptomLogs[userId].push({
-                                    date,
-                                    symptoms: entry.symptoms || []
-                                });
-                            }
+        let averagedReductions = [];
+        
+        // Special handling for "all symptoms" case
+        if (selectedSymptom === "all" && selectedUser === "all") {
+            // Count total entries per user across all dates
+            const userEntryCounts = {};
+            const userSymptomLogs = {}; // Store all logs per user
+            
+            // Count entries and collect logs per user
+            filteredUserIds.forEach(userId => {
+                userEntryCounts[userId] = 0;
+                userSymptomLogs[userId] = [];
+                
+                filteredDates.forEach(date => {
+                    const entry = symptomLogs[userId]?.[date];
+                    if (entry) {
+                        userEntryCounts[userId]++;
+                        userSymptomLogs[userId].push({
+                            date,
+                            symptoms: entry.symptoms || []
                         });
-                    });
-                    
-                    // Filter out users with fewer than 2 entries
-                    const validUserIds = filteredUserIds.filter(userId => userEntryCounts[userId] >= 2);
-                    
-                    if (validUserIds.length === 0) {
-                        return null;
                     }
+                });
+            });
+            
+            // Filter out users with fewer than 2 entries
+            const validUserIds = filteredUserIds.filter(userId => userEntryCounts[userId] >= 2);
+            
+            if (validUserIds.length > 0) {
+                // Calculate individual user percentage changes for all symptoms combined
+                const userPercentageChanges = [];
+                
+                validUserIds.forEach(userId => {
+                    const userEntries = userSymptomLogs[userId].sort((a, b) => 
+                        new Date(a.date) - new Date(b.date)
+                    );
                     
-                    // Calculate individual user percentage changes
-                    const userPercentageChanges = [];
-                    
-                    validUserIds.forEach(userId => {
-                        const userEntries = userSymptomLogs[userId].sort((a, b) => 
-                            new Date(a.date) - new Date(b.date)
-                        );
+                    if (userEntries.length >= 2) {
+                        const firstEntry = userEntries[0];
+                        const lastEntry = userEntries[userEntries.length - 1];
                         
-                        if (userEntries.length >= 2) {
-                            const firstEntry = userEntries[0];
-                            const lastEntry = userEntries[userEntries.length - 1];
-                            
-                            const firstScore = firstEntry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
-                            const lastScore = lastEntry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
-                            
-                            let pctChange;
-                            if (firstScore === 0) {
-                                pctChange = lastScore === 0 ? 0 : 100;
-                            } else {
-                                pctChange = ((lastScore - firstScore) / firstScore) * 100;
-                            }
-                            
-                            userPercentageChanges.push(pctChange);
+                        const firstScore = firstEntry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
+                        const lastScore = lastEntry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
+                        
+                        let pctChange;
+                        if (firstScore === 0) {
+                            pctChange = lastScore === 0 ? 0 : 100;
+                        } else {
+                            pctChange = ((lastScore - firstScore) / firstScore) * 100;
                         }
-                    });
-                    
-                    if (userPercentageChanges.length === 0) {
-                        return null;
+                        
+                        userPercentageChanges.push(pctChange);
                     }
-                    
+                });
+                
+                if (userPercentageChanges.length > 0) {
                     // Calculate average percentage change
                     const avgPctChange = userPercentageChanges.reduce((sum, change) => sum + change, 0) / userPercentageChanges.length;
                     
-                    const symptomName = symptoms.find(s => s.id === symptomId)?.name || symptomId;
-                    
-                    return {
-                        symptom: symptomName,
+                    averagedReductions = [{
+                        symptom: "All Symptoms",
                         avgPctChange: Math.abs(avgPctChange),
                         rawPctChange: avgPctChange,
                         formattedChange: `${avgPctChange > 0 ? "+" : ""}${avgPctChange.toFixed(1)}%`
-                    };
-                } else {
+                    }];
+                }
+            }
+        } else {
+            // Original logic for specific symptoms
+            averagedReductions = Object.entries(reductionScores).map(([symptomId, values]) => {
+                const numericValues = values
+                    .filter(v => typeof v.value === "number")
+                    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                if (numericValues.length < 2) {
+                    return null;
+                }
+
+                // For "all users" calculation, filter out users with only one entry
+                let filteredValues = numericValues;
+                if (selectedUser === "all") {
                     // For specific symptoms, count entries per user for this symptom only
                     const userEntryCounts = {};
                     numericValues.forEach(v => {
@@ -376,33 +373,33 @@ export const useAnalyticsData = (filters) => {
                     filteredValues = numericValues.filter(v => 
                         !v.userId || userEntryCounts[v.userId] >= 2
                     );
+                    
+                    // If no users have 2+ entries, return null
+                    if (filteredValues.length < 2) {
+                        return null;
+                    }
                 }
-                
-                // If no users have 2+ entries, return null
-                if (filteredValues.length < 2) {
-                    return null;
+
+                const first = filteredValues[0];
+                const last = filteredValues[filteredValues.length - 1];
+
+                let pctChange;
+                if (first.value === 0) {
+                    pctChange = last.value === 0 ? 0 : 100;
+                } else {
+                    pctChange = ((last.value - first.value) / first.value) * 100;
                 }
-            }
 
-            const first = filteredValues[0];
-            const last = filteredValues[filteredValues.length - 1];
+                const symptomName = symptoms.find(s => s.id === symptomId)?.name || symptomId;
 
-            let pctChange;
-            if (first.value === 0) {
-                pctChange = last.value === 0 ? 0 : 100;
-            } else {
-                pctChange = ((last.value - first.value) / first.value) * 100;
-            }
-
-            const symptomName = symptoms.find(s => s.id === symptomId)?.name || symptomId;
-
-            return {
-                symptom: symptomName,
-                avgPctChange: Math.abs(pctChange),
-                rawPctChange: pctChange,
-                formattedChange: `${pctChange > 0 ? "+" : ""}${pctChange.toFixed(1)}%`
-            };
-        }).filter(Boolean);
+                return {
+                    symptom: symptomName,
+                    avgPctChange: Math.abs(pctChange),
+                    rawPctChange: pctChange,
+                    formattedChange: `${pctChange > 0 ? "+" : ""}${pctChange.toFixed(1)}%`
+                };
+            }).filter(Boolean);
+        }
 
         const topReducedSymptoms = averagedReductions
             .sort((a, b) => a.rawPctChange - b.rawPctChange)
