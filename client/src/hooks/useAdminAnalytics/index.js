@@ -308,6 +308,9 @@ export const useAnalyticsData = (filters) => {
             // Filter out users with fewer than 2 entries
             const validUserIds = filteredUserIds.filter(userId => userEntryCounts[userId] >= 2);
             
+            console.log("All users + All symptoms - Entry counts:", userEntryCounts);
+            console.log("All users + All symptoms - Valid users:", validUserIds);
+            
             if (validUserIds.length > 0) {
                 // Calculate individual user percentage changes for all symptoms combined
                 const userPercentageChanges = [];
@@ -324,6 +327,8 @@ export const useAnalyticsData = (filters) => {
                         const firstScore = firstEntry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
                         const lastScore = lastEntry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
                         
+                        console.log(`User ${userId}: First score: ${firstScore}, Last score: ${lastScore}`);
+                        
                         let pctChange;
                         if (firstScore === 0) {
                             pctChange = lastScore === 0 ? 0 : 100;
@@ -331,6 +336,7 @@ export const useAnalyticsData = (filters) => {
                             pctChange = ((lastScore - firstScore) / firstScore) * 100;
                         }
                         
+                        console.log(`User ${userId}: Percentage change: ${pctChange}%`);
                         userPercentageChanges.push(pctChange);
                     }
                 });
@@ -339,12 +345,19 @@ export const useAnalyticsData = (filters) => {
                     // Calculate average percentage change
                     const avgPctChange = userPercentageChanges.reduce((sum, change) => sum + change, 0) / userPercentageChanges.length;
                     
+                    console.log("All users + All symptoms calculation:");
+                    console.log("Valid users:", validUserIds);
+                    console.log("User percentage changes:", userPercentageChanges);
+                    console.log("Average percentage change:", avgPctChange);
+                    
                     averagedReductions = [{
                         symptom: "All Symptoms",
                         avgPctChange: Math.abs(avgPctChange),
                         rawPctChange: avgPctChange,
                         formattedChange: `${avgPctChange > 0 ? "+" : ""}${avgPctChange.toFixed(1)}%`
                     }];
+                } else {
+                    console.log("No valid users with percentage changes found");
                 }
             }
         } else {
