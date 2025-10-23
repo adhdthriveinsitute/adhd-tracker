@@ -295,7 +295,7 @@ export const useAnalyticsData = (filters) => {
                 
                 filteredDates.forEach(date => {
                     const entry = symptomLogs[userId]?.[date];
-                    if (entry) {
+                    if (entry && entry.symptoms && entry.symptoms.length > 0) {
                         userEntryCounts[userId]++;
                         userSymptomLogs[userId].push({
                             date,
@@ -310,6 +310,12 @@ export const useAnalyticsData = (filters) => {
             
             console.log("All users + All symptoms - Entry counts:", userEntryCounts);
             console.log("All users + All symptoms - Valid users:", validUserIds);
+            console.log("Total filtered users:", filteredUserIds.length);
+            console.log("Users with 2+ entries:", validUserIds.length);
+            
+            // Debug: Show entry counts for first few users
+            const entryCountsArray = Object.entries(userEntryCounts).slice(0, 5);
+            console.log("First 5 users entry counts:", entryCountsArray);
             
             if (validUserIds.length > 0) {
                 // Calculate individual user percentage changes for all symptoms combined
@@ -320,6 +326,8 @@ export const useAnalyticsData = (filters) => {
                         new Date(a.date) - new Date(b.date)
                     );
                     
+                    console.log(`User ${userId}: Has ${userEntries.length} entries`);
+                    
                     if (userEntries.length >= 2) {
                         const firstEntry = userEntries[0];
                         const lastEntry = userEntries[userEntries.length - 1];
@@ -327,7 +335,8 @@ export const useAnalyticsData = (filters) => {
                         const firstScore = firstEntry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
                         const lastScore = lastEntry.symptoms.reduce((acc, s) => acc + (s?.score || 0), 0);
                         
-                        console.log(`User ${userId}: First score: ${firstScore}, Last score: ${lastScore}`);
+                        console.log(`User ${userId}: First entry date: ${firstEntry.date}, First score: ${firstScore}`);
+                        console.log(`User ${userId}: Last entry date: ${lastEntry.date}, Last score: ${lastScore}`);
                         
                         let pctChange;
                         if (firstScore === 0) {
@@ -338,6 +347,8 @@ export const useAnalyticsData = (filters) => {
                         
                         console.log(`User ${userId}: Percentage change: ${pctChange}%`);
                         userPercentageChanges.push(pctChange);
+                    } else {
+                        console.log(`User ${userId}: Not enough entries (${userEntries.length})`);
                     }
                 });
                 
